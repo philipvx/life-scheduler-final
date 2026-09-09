@@ -1,0 +1,2 @@
+@echo off
+sshpass -p "VNd-CwN-6zP-q3X" ssh -o StrictHostKeyChecking=no ubuntu@43.157.228.247 "cd /home/ubuntu/teman/life-scheduler && git pull origin main && node -e \"const Database = require('better-sqlite3'); const db = new Database('scheduler.db'); try { db.exec('ALTER TABLE users ADD COLUMN categories TEXT DEFAULT null;'); console.log('Added categories'); } catch(e) { console.log(e.message); }\" && pm2 restart life-scheduler"

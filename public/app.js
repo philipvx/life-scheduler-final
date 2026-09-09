@@ -1178,7 +1178,19 @@ if($("#calUserSelect")) {
 setTimeout(initAuth, 100);
 
 function updateUserCategories() {
-  CATS = { ...DEFAULT_CATS }
+  CATS = { ...DEFAULT_CATS };
+  let user = null;
+  if (window.viewedUserId) {
+    if (window.currentUser && window.currentUser.id == window.viewedUserId) user = window.currentUser;
+    else if (window.allUsers) user = window.allUsers.find(u => u.id == window.viewedUserId);
+  }
+  if (user && user.categories) {
+    try { Object.assign(CATS, JSON.parse(user.categories)); } catch(e){}
+  }
+  const legend = $("#calLegend");
+  if(legend) legend.innerHTML = Object.keys(CATS).map(c => `<span class="cat-chip" style="--cat:${catColor(c)}">${esc(c)}</span>`).join("");
+}
+
 function renderManageCategories() {
   const list = document.querySelector('#catManageList');
   if(!list) return;
@@ -1189,11 +1201,13 @@ function renderManageCategories() {
 </div>`
   ).join('');
 }
+
 window.deleteCategory = async (c) => {
   if(!confirm('Hapus kategori ' + c + '?')) return;
   delete CATS[c];
   await saveCategories();
 };
+
 if(document.querySelector('#btnAddCat')) {
   document.querySelector('#btnAddCat').onclick = async () => {
     const name = document.querySelector('#newCatName').value.trim();
@@ -1204,6 +1218,7 @@ if(document.querySelector('#btnAddCat')) {
     await saveCategories();
   };
 }
+
 async function saveCategories() {
   if(!window.currentUser) return;
   try {
