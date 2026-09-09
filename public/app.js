@@ -3,7 +3,7 @@ const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 const esc = x => String(x ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-const CATS = {
+const DEFAULT_CATS = {
   "Academic": "var(--cat-academic)",
   "KP": "var(--cat-kp)",
   "Bootcamp": "var(--cat-bootcamp)",
@@ -14,6 +14,7 @@ const CATS = {
   "Personal": "var(--cat-personal)",
   "Rest": "var(--cat-rest)"
 };
+let CATS = { ...DEFAULT_CATS };
 const catColor = c => CATS[c] || "var(--primary)";
 const PRI_LABEL = { 1: "P1", 2: "P2", 3: "P3", 4: "P4", 5: "P5" };
 const PRI_FULL = { 1: "P1 — Wajib", 2: "P2 — Tinggi", 3: "P3 — Sedang", 4: "P4 — Fleksibel", 5: "P5 — Fleksibel" };
@@ -29,13 +30,19 @@ function monday(d) { const x = new Date(d); const n = x.getDay() || 7; x.setDate
 function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function sameDate(a, b) { return iso(a) === iso(b); }
 function dateTextLong(s) { return parseISO(s).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); }
-window.viewedUserId = 1;
+window.viewedUserId = "";
 window.currentUser = null;
 
 async function api(u, o = {}) {
   const token = localStorage.getItem("ls_token");
   o.headers = o.headers || {};
   if (token) o.headers["Authorization"] = "Bearer " + token;
+  
+  if (!window.viewedUserId && !u.startsWith("/api/user") && !u.startsWith("/api/login") && !u.startsWith("/api/register")) {
+    if (u.includes("/stats") || u.includes("/habits")) return {};
+    return [];
+  }
+
   if (!o.method || o.method === "GET") {
     const separator = u.includes("?") ? "&" : "?";
     u = u + separator + "userId=" + window.viewedUserId;
@@ -248,7 +255,8 @@ async function renderCalendar() {
   $("#calRange").textContent = `${start.toLocaleDateString("id-ID", { day: "numeric", month: "short" })} – ${end.toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}`;
 
   if (!$("#calLegend").childElementCount) {
-    $("#calLegend").innerHTML = Object.keys(CATS).map(c => `<span class="cat-chip" style="--cat:${catColor(c)}">${esc(c)}</span>`).join("");
+    const legend = $("#calLegend");
+    if(legend) legend.innerHTML = Object.keys(CATS).map(c => `<span class="cat-chip" style="--cat:${catColor(c)}">${esc(c)}</span>`).join("");
   }
 
   let rows = [];
@@ -1024,22 +1032,25 @@ async function initAuth() {
 
   try {
     const users = await api("/api/users");
+    window.allUsers = users;
     const sel = $("#calUserSelect");
     if(sel) {
-      sel.innerHTML = users.map(u => `<option value="${u.id}">${u.username}</option>`).join("");
+      sel.innerHTML = `<option value="">-- Pilih Akun (None) --</option>` + users.map(u => `<option value="${u.id}">${u.username}</option>`).join("");
       if (window.currentUser) {
         if (!users.find(u => u.id === window.currentUser.id)) {
            sel.innerHTML += `<option value="${window.currentUser.id}">${window.currentUser.username} (Private)</option>`;
         }
+        window.viewedUserId = window.currentUser.id;
         sel.value = window.currentUser.id;
-      } else if (users.length > 0) {
-        window.viewedUserId = users[0].id;
-        sel.value = users[0].id;
+      } else {
+        window.viewedUserId = "";
+        sel.value = "";
       }
-      if (users.length > 0 || window.currentUser) {
-        sel.classList.remove("hide");
-      }
+      sel.classList.remove("hide");
     }
+    
+    updateUserCategories();
+    
   } catch(e) {}
 
   refreshAuthUI();
@@ -1063,6 +1074,7 @@ if($("#btnAuth")) {
     if (window.currentUser) {
       $("#a_username").value = window.currentUser.username;
       $("#accountModal").classList.remove("hide");
+      if(typeof renderManageCategories === 'function') renderManageCategories();
     } else {
       $("#loginModal").classList.remove("hide");
     }
@@ -1155,6 +1167,7 @@ if($("#publicSwitch")) {
 if($("#calUserSelect")) {
   $("#calUserSelect").onchange = (e) => {
     window.viewedUserId = e.target.value;
+    updateUserCategories();
     refreshAuthUI();
     loadDashboard();
     renderCalendar();
@@ -1164,3 +1177,57 @@ if($("#calUserSelect")) {
 
 setTimeout(initAuth, 100);
 
+function updateUserCategories() {
+  CATS = { ...DEFAULT_CATS }
+function renderManageCategories() {
+  const list = document.querySelector('#catManageList');
+  if(!list) return;
+  list.innerHTML = Object.keys(CATS).map(c => `
+<div style="display:flex; justify-content:space-between; align-items:center; background:var(--bg-hover); padding:6px 10px; border-radius:6px; margin-bottom:4px;">
+<span class="cat-chip" style="--cat:${catColor(c)}">${esc(c)}</span>
+<button type="button" class="x-btn" onclick="deleteCategory('${esc(c)}')" style="background:none; border:none; cursor:pointer;"><svg class="icon icon-sm"><use href="#ic-trash"/></svg></button>
+</div>`
+  ).join('');
+}
+window.deleteCategory = async (c) => {
+  if(!confirm('Hapus kategori ' + c + '?')) return;
+  delete CATS[c];
+  await saveCategories();
+};
+if(document.querySelector('#btnAddCat')) {
+  document.querySelector('#btnAddCat').onclick = async () => {
+    const name = document.querySelector('#newCatName').value.trim();
+    const color = document.querySelector('#newCatColor').value;
+    if(!name) return;
+    CATS[name] = color;
+    document.querySelector('#newCatName').value = '';
+    await saveCategories();
+  };
+}
+async function saveCategories() {
+  if(!window.currentUser) return;
+  try {
+    const catsStr = JSON.stringify(CATS);
+    await api('/api/users/me/categories', {
+      method: 'PUT', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ categories: catsStr })
+    });
+    window.currentUser.categories = catsStr;
+    updateUserCategories();
+    renderManageCategories();
+    
+    // Also update the Add Form options
+    const catGrid = document.querySelector('#catGrid');
+    if(catGrid) {
+      const selected = catGrid.querySelector('.cat-opt.on')?.dataset.cat;
+      catGrid.innerHTML = Object.keys(CATS).map(c => `<div class="cat-opt" data-cat="${esc(c)}" style="--cat:${catColor(c)}">${esc(c)}</div>`).join('');
+      catGrid.querySelectorAll('.cat-opt').forEach(el => {
+        if(el.dataset.cat === selected) el.classList.add('on');
+        el.onclick = () => {
+          catGrid.querySelectorAll('.cat-opt').forEach(x => x.classList.remove('on'));
+          el.classList.add('on');
+        };
+      });
+    }
+  } catch(e) { toast(e.message, 'error'); }
+}

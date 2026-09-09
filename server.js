@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
  username TEXT UNIQUE NOT NULL,
  password TEXT NOT NULL,
- is_public INTEGER NOT NULL DEFAULT 1
+ is_public INTEGER NOT NULL DEFAULT 1,
+ categories TEXT DEFAULT NULL
 );
 CREATE TABLE IF NOT EXISTS activities (
  id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -101,7 +102,7 @@ app.post("/api/register", (req, res) => {
     const hash = bcrypt.hashSync(password, 10);
     const r = db.prepare("INSERT INTO users(username, password) VALUES(?, ?)").run(username, hash);
     const token = jwt.sign({ id: r.lastInsertRowid, username }, JWT_SECRET, { expiresIn: '7d' });
-    res.json({ token, id: r.lastInsertRowid, username, is_public: 1 });
+    res.json({ token, id: r.lastInsertRowid, username, is_public: 1, categories: null });
   } catch (e) {
     res.status(400).json({ error: "Username already exists" });
   }
@@ -114,22 +115,28 @@ app.post("/api/login", (req, res) => {
     return res.status(401).json({ error: "Invalid username or password" });
   }
   const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' });
-  res.json({ token, id: user.id, username: user.username, is_public: user.is_public });
+  res.json({ token, id: user.id, username: user.username, is_public: user.is_public, categories: user.categories });
 });
 
 app.get("/api/users", (req, res) => {
-  const users = db.prepare("SELECT id, username, is_public FROM users WHERE is_public = 1").all();
+  const users = db.prepare("SELECT id, username, is_public, categories FROM users WHERE is_public = 1").all();
   res.json(users);
 });
 
 app.get("/api/users/me", authenticate, (req, res) => {
-  const user = db.prepare("SELECT id, username, is_public FROM users WHERE id=?").get(req.user.id);
+  const user = db.prepare("SELECT id, username, is_public, categories FROM users WHERE id=?").get(req.user.id);
   res.json(user);
 });
 
 app.put("/api/users/me/public", authenticate, (req, res) => {
   const { is_public } = req.body;
   db.prepare("UPDATE users SET is_public=? WHERE id=?").run(is_public ? 1 : 0, req.user.id);
+  res.json({ ok: true });
+});
+
+app.put("/api/users/me/categories", authenticate, (req, res) => {
+  const { categories } = req.body; // expected to be stringified JSON object
+  db.prepare("UPDATE users SET categories=? WHERE id=?").run(categories, req.user.id);
   res.json({ ok: true });
 });
 

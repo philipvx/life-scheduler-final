@@ -608,9 +608,19 @@
           <label>Password Baru</label>
           <input type="password" id="a_password" placeholder="Kosongkan jika tidak diganti">
         </div>
+        
+        <hr style="border:0; border-top:1px solid var(--border); margin: 10px 0;">
+        <h3>Kategori Aktivitas</h3>
+        <div id="catManageList" style="display:flex; flex-direction:column; gap:8px;"></div>
+        <div style="display:flex; gap:8px; margin-top:4px;">
+          <input type="text" id="newCatName" placeholder="Nama Kategori" style="flex:1" class="field">
+          <input type="color" id="newCatColor" value="#5b58ef" style="width:40px; height:36px; padding:0; cursor:pointer; border-radius:8px; border:1px solid var(--border);">
+          <button type="button" class="btn btn-ghost" id="btnAddCat" style="padding:0 12px;">Tambah</button>
+        </div>
+
         <div class="form-actions" style="margin-top:16px">
           <button type="button" class="btn btn-danger-ghost" id="btnLogout">Logout</button>
-          <button type="submit" class="btn btn-primary" style="margin-left:auto">Simpan</button>
+          <button type="submit" class="btn btn-primary" style="margin-left:auto">Simpan Profil</button>
         </div>
       </form>
     </div>
