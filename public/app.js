@@ -30,6 +30,8 @@ function monday(d) { const x = new Date(d); const n = x.getDay() || 7; x.setDate
 function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
 function sameDate(a, b) { return iso(a) === iso(b); }
 function dateTextLong(s) { return parseISO(s).toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); }
+function todayISO() { return iso(new Date()); }
+function isPastDate(dateStr) { return dateStr < todayISO(); }
 window.viewedUserId = "";
 window.currentUser = null;
 
@@ -213,17 +215,40 @@ async function loadHabits() {
   let habits = [];
   try { habits = await api("/api/habits"); } catch (e) { return; }
   const list = $("#habitList");
+  const isOwner = window.currentUser && window.currentUser.id == window.viewedUserId;
   if (!habits.length) {
-    list.innerHTML = `<div class="empty-note">Belum ada kebiasaan yang terdeteksi. Kebiasaan diambil dari aktivitas berulang di kategori Worship, Health, Data Analyst, English, atau Personal.</div>`;
+    list.innerHTML = `<div class="empty-note">Belum ada kebiasaan. Buat aktivitas berulang (harian/mingguan/dll) untuk mulai melacak streak.</div>`;
     return;
   }
   list.innerHTML = habits.map(h => `
-    <div class="habit-card ${h.current === 0 ? "zero" : ""}" style="--cat:${catColor(h.category)}">
-      <div class="hc-title">${esc(h.title)}</div>
-      <div class="hc-cat">${esc(h.category)}</div>
+    <div class="habit-card ${h.current === 0 ? "zero" : ""} ${h.today_done ? "today-done" : ""}" style="--cat:${catColor(h.category)}">
+      <div class="hc-top">
+        <div>
+          <div class="hc-title">${esc(h.title)}</div>
+          <div class="hc-cat">${esc(h.category)}</div>
+        </div>
+        ${isOwner && h.today_id ? `<button class="habit-toggle-btn ${h.today_done ? "done" : ""}" data-hid="${h.today_id}" data-hdate="${h.today_date}" title="${h.today_done ? "Batalkan selesai hari ini" : "Tandai selesai hari ini"}">
+          <svg class="icon icon-sm"><use href="#ic-check"/></svg>
+        </button>` : ""}
+      </div>
       <div class="hc-streak"><b>${h.current ? "🔥" + h.current : "0"}</b><span>hari beruntun</span></div>
       <div class="hc-best">Rekor terbaik: ${h.best} hari</div>
+      ${h.today_id === null ? `<div class="hc-note">Tidak ada jadwal hari ini</div>` : ""}
     </div>`).join("");
+
+  if (isOwner) {
+    list.querySelectorAll(".habit-toggle-btn").forEach(btn => {
+      btn.onclick = async (e) => {
+        e.stopPropagation();
+        const id = btn.dataset.hid, date = btn.dataset.hdate;
+        try {
+          await api(`/api/activities/${id}/toggle?date=${date}`, { method: "PATCH" });
+          loadHabits();
+          renderActiveView();
+        } catch(err) { toast(err.message, "error"); }
+      };
+    });
+  }
 }
 function timeMins(t) { const [h, m] = t.split(":").map(Number); return h * 60 + m; }
 
@@ -330,21 +355,26 @@ async function renderSchedule() {
   const today = new Date();
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
 
+  const isOwner = window.currentUser && window.currentUser.id == window.viewedUserId;
   $("#dayCards").innerHTML = days.map(d => {
     const ds = iso(d);
     const items = rows.filter(x => x.occurrence_date === ds).sort((a, b) => a.start_time.localeCompare(b.start_time));
     const isToday = sameDate(d, today);
-    return `<div class="day-card ${isToday ? "is-today" : ""}">
+    const isPast = isPastDate(ds);
+    return `<div class="day-card ${isToday ? "is-today" : ""} ${isPast ? "is-past" : ""}">
       <div class="day-card-head">
         <div class="dch-left">
           <b>${d.toLocaleDateString("id-ID", { weekday: "long" })}</b>
           <span>${d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</span>
         </div>
-        <span class="dch-badge">${items.length} aktivitas</span>
+        <div style="display:flex;gap:6px;align-items:center;">
+          ${isPast ? `<span class="past-lock-badge">🔒 Terkunci</span>` : ""}
+          <span class="dch-badge">${items.length} aktivitas</span>
+        </div>
       </div>
       <div class="day-card-body">
         ${items.length ? items.map(x => `
-          <div class="sched-row ${x.completed ? "is-done" : ""}" style="--cat:${catColor(x.category)}" data-id="${x.id}" data-occ="${x.occurrence_date}">
+          <div class="sched-row ${x.completed ? "is-done" : ""} ${isPast ? "is-past-row" : ""}" style="--cat:${catColor(x.category)}" data-id="${x.id}" data-occ="${x.occurrence_date}">
             <div class="sched-time">${x.start_time}–${x.end_time}</div>
             <div class="sched-dot"></div>
             <div class="sched-main">
@@ -352,10 +382,10 @@ async function renderSchedule() {
               <div class="sched-sub">${esc(x.category)} · ${PRI_LABEL[x.priority]}</div>
             </div>
             <div class="sched-actions">
-              ${x.completed ? "" : `<button class="icon-btn" data-act="focus" title="Mulai fokus"><svg class="icon icon-sm"><use href="#ic-timer"/></svg></button>`}
-              <button class="icon-btn check ${x.completed ? "on" : ""}" data-act="toggle" title="Selesai"><svg class="icon icon-sm"><use href="#ic-check"/></svg></button>
-              <button class="icon-btn" data-act="edit" title="Edit"><svg class="icon icon-sm"><use href="#ic-pencil"/></svg></button>
-              <button class="icon-btn danger" data-act="del" title="Hapus"><svg class="icon icon-sm"><use href="#ic-trash"/></svg></button>
+              ${!isPast && isOwner && !x.completed ? `<button class="icon-btn" data-act="focus" title="Mulai fokus"><svg class="icon icon-sm"><use href="#ic-timer"/></svg></button>` : ""}
+              ${isOwner ? `<button class="icon-btn check ${x.completed ? "on" : ""}" data-act="toggle" title="${x.completed ? "Batalkan selesai" : "Tandai selesai"}"><svg class="icon icon-sm"><use href="#ic-check"/></svg></button>` : ""}
+              ${!isPast && isOwner ? `<button class="icon-btn" data-act="edit" title="Edit"><svg class="icon icon-sm"><use href="#ic-pencil"/></svg></button>
+              <button class="icon-btn danger" data-act="del" title="Hapus"><svg class="icon icon-sm"><use href="#ic-trash"/></svg></button>` : ""}
             </div>
           </div>`).join("") : `<div class="day-empty">Tidak ada aktivitas.</div>`}
       </div>
@@ -364,10 +394,13 @@ async function renderSchedule() {
 
   $("#dayCards").querySelectorAll(".sched-row").forEach(row => {
     const id = row.dataset.id, occ = row.dataset.occ;
-    row.querySelector('[data-act="toggle"]').onclick = e => { e.stopPropagation(); toggleActivity(id, occ); };
-    row.querySelector('[data-act="edit"]').onclick = e => { e.stopPropagation(); openForm(id); };
-    row.querySelector('[data-act="del"]').onclick = e => { e.stopPropagation(); deleteActivity(id); };
+    const toggleBtn = row.querySelector('[data-act="toggle"]');
+    const editBtn = row.querySelector('[data-act="edit"]');
+    const delBtn = row.querySelector('[data-act="del"]');
     const focusBtn = row.querySelector('[data-act="focus"]');
+    if (toggleBtn) toggleBtn.onclick = e => { e.stopPropagation(); toggleActivity(id, occ); };
+    if (editBtn) editBtn.onclick = e => { e.stopPropagation(); openForm(id); };
+    if (delBtn) delBtn.onclick = e => { e.stopPropagation(); deleteActivity(id); };
     if (focusBtn) focusBtn.onclick = e => {
       e.stopPropagation();
       const item = rows.find(x => String(x.id) === id && x.occurrence_date === occ);

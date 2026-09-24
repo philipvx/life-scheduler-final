@@ -1009,6 +1009,46 @@ h1.page-title {
 .habit-card.zero {
   opacity: .6
 }
+.habit-card .hc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+.habit-card .hc-note {
+  font-size: .75rem;
+  color: var(--text-2);
+  margin-top: 4px;
+}
+.habit-toggle-btn {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .15s, border-color .15s;
+  color: var(--text-2);
+}
+.habit-toggle-btn:hover { background: var(--primary); border-color: var(--primary); color: #fff; }
+.habit-toggle-btn.done { background: var(--primary); border-color: var(--primary); color: #fff; }
+.habit-card.today-done { border-left: 3px solid var(--primary); }
+
+/* Past-day lock styles */
+.past-lock-badge {
+  font-size: .7rem;
+  background: var(--bg-hover);
+  color: var(--text-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+.day-card.is-past { opacity: .85; }
+.sched-row.is-past-row { opacity: .8; }
 
 .next-card .nc-title {
   font-weight: 750;

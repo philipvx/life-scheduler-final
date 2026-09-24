@@ -386,8 +386,8 @@ app.get("/api/stats", checkReadAccess, (req, res) => {
 const HABIT_CATEGORIES = ["Worship", "Health", "Data Analyst", "English", "Personal"];
 
 app.get("/api/habits", checkReadAccess, (req, res) => {
-  const rows = db.prepare("SELECT * FROM activities WHERE user_id=?").all(req.targetUserId)
-    .filter(a => a.recurring !== "none" && HABIT_CATEGORIES.includes(a.category));
+  // All recurring activities count as habits (not limited to specific categories)
+  const rows = db.prepare("SELECT * FROM activities WHERE user_id=? AND recurring != 'none'").all(req.targetUserId);
 
   const groups = {};
   rows.forEach(a => {
@@ -430,7 +430,12 @@ app.get("/api/habits", checkReadAccess, (req, res) => {
         dd.setDate(dd.getDate() + 1);
       }
     }
-    return { title: g.title, category: g.category, current, best };
+
+    // Check if today is scheduled and done
+    const todayRow = rowForDate(today);
+    const todayDone = todayRow ? completedSet.has(todayRow.id + "|" + toISO(today)) : null;
+
+    return { title: g.title, category: g.category, current, best, today_done: todayDone, today_id: todayRow?.id, today_date: toISO(today) };
   }).sort((a, b) => b.current - a.current || b.best - a.best);
 
   res.json(result);
