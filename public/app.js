@@ -178,7 +178,7 @@ async function loadDashboard() {
   }
   tl.querySelectorAll("[data-toggle]").forEach(b => b.onclick = async (e) => {
     e.stopPropagation();
-    await toggleActivity(b.dataset.toggle, b.dataset.occ);
+    await toggleActivity(b.dataset.toggle, b.dataset.occ, true); // fromTimeline=true → may prompt streak
   });
   tl.querySelectorAll("[data-focus]").forEach(b => b.onclick = (e) => {
     e.stopPropagation();
@@ -217,7 +217,7 @@ async function loadHabits() {
   const list = $("#habitList");
   const isOwner = window.currentUser && window.currentUser.id == window.viewedUserId;
   if (!habits.length) {
-    list.innerHTML = `<div class="empty-note">Belum ada kebiasaan. Buat aktivitas berulang (harian/mingguan/dll) untuk mulai melacak streak.</div>`;
+    list.innerHTML = `<div class="empty-note">Belum ada habit streak. Tandai aktivitas sebagai selesai di Today's Timeline untuk mulai melacak streak.</div>`;
     return;
   }
   list.innerHTML = habits.map(h => `
@@ -227,24 +227,21 @@ async function loadHabits() {
           <div class="hc-title">${esc(h.title)}</div>
           <div class="hc-cat">${esc(h.category)}</div>
         </div>
-        ${isOwner && h.today_id ? `<button class="habit-toggle-btn ${h.today_done ? "done" : ""}" data-hid="${h.today_id}" data-hdate="${h.today_date}" title="${h.today_done ? "Batalkan selesai hari ini" : "Tandai selesai hari ini"}">
-          <svg class="icon icon-sm"><use href="#ic-check"/></svg>
-        </button>` : ""}
+        ${isOwner ? `<button class="habit-remove-btn" data-hid="${h.activity_id}" title="Hapus dari streak"><svg class="icon icon-sm"><use href="#ic-x"/></svg></button>` : ""}
       </div>
       <div class="hc-streak"><b>${h.current ? "🔥" + h.current : "0"}</b><span>hari beruntun</span></div>
       <div class="hc-best">Rekor terbaik: ${h.best} hari</div>
-      ${h.today_id === null ? `<div class="hc-note">Tidak ada jadwal hari ini</div>` : ""}
     </div>`).join("");
 
   if (isOwner) {
-    list.querySelectorAll(".habit-toggle-btn").forEach(btn => {
+    list.querySelectorAll(".habit-remove-btn").forEach(btn => {
       btn.onclick = async (e) => {
         e.stopPropagation();
-        const id = btn.dataset.hid, date = btn.dataset.hdate;
+        if (!confirm("Hapus aktivitas ini dari streak tracking?")) return;
         try {
-          await api(`/api/activities/${id}/toggle?date=${date}`, { method: "PATCH" });
+          await api(`/api/habits/${btn.dataset.hid}`, { method: "DELETE" });
+          toast("Dihapus dari streak.", "success");
           loadHabits();
-          renderActiveView();
         } catch(err) { toast(err.message, "error"); }
       };
     });
@@ -654,9 +651,60 @@ $("#btnEditDetail").onclick = () => { if (detailItem) { const id = detailItem.id
 // ===========================================================================
 // Shared mutations
 // ===========================================================================
-async function toggleActivity(id, date) {
-  try { await api(`/api/activities/${id}/toggle?date=${date}`, { method: "PATCH" }); renderActiveView(); }
+async function toggleActivity(id, date, fromTimeline = false) {
+  try {
+    const result = await api(`/api/activities/${id}/toggle?date=${date}`, { method: "PATCH" });
+    renderActiveView();
+
+    // If just marked as DONE (not cancelled) and called from today's timeline, ask about streak
+    if (fromTimeline && result && result.completed === true) {
+      const today = todayISO();
+      if (date === today) {
+        // Check if already tracked as habit
+        try {
+          const check = await api(`/api/habits/check/${id}`);
+          if (!check.is_habit) {
+            showHabitPrompt(id);
+          }
+        } catch(e) {}
+      }
+    }
+
+    loadHabits();
+  }
   catch (e) { toast(e.message, "error"); }
+}
+
+function showHabitPrompt(activityId) {
+  // Remove any existing prompt
+  const old = document.getElementById("habitPrompt");
+  if (old) old.remove();
+
+  const div = document.createElement("div");
+  div.id = "habitPrompt";
+  div.style.cssText = "position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 20px;box-shadow:0 8px 32px rgba(0,0,0,.2);z-index:9999;display:flex;flex-direction:column;gap:10px;min-width:280px;max-width:340px;";
+  div.innerHTML = `
+    <div style="font-weight:600;font-size:.9rem;">🔥 Jadikan Streak?</div>
+    <div style="font-size:.82rem;color:var(--text-2);">Mau lacak aktivitas ini sebagai habit streak?</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button id="habitPromptNo" class="btn btn-ghost" style="font-size:.8rem;padding:4px 12px;">Tidak</button>
+      <button id="habitPromptYes" class="btn btn-primary" style="font-size:.8rem;padding:4px 12px;">Ya, Jadikan Streak</button>
+    </div>`;
+  document.body.appendChild(div);
+
+  const close = () => div.remove();
+  document.getElementById("habitPromptNo").onclick = close;
+  document.getElementById("habitPromptYes").onclick = async () => {
+    close();
+    try {
+      await api(`/api/habits/${activityId}`, { method: "POST", headers: {"Content-Type":"application/json"}, body: "{}" });
+      toast("🔥 Ditambahkan ke Habit Streak!", "success");
+      loadHabits();
+    } catch(e) { toast(e.message, "error"); }
+  };
+
+  // Auto-dismiss after 8 seconds
+  setTimeout(close, 8000);
 }
 async function deleteActivity(id) {
   if (!confirm("Hapus aktivitas ini? Jika berulang, semua kemunculannya akan terhapus.")) return;

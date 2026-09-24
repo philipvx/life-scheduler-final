@@ -59,6 +59,12 @@ CREATE TABLE IF NOT EXISTS subtasks (
  sort_order INTEGER NOT NULL DEFAULT 0,
  created_at TEXT DEFAULT CURRENT_TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS habits (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER NOT NULL,
+ activity_id INTEGER NOT NULL,
+ UNIQUE(user_id, activity_id)
+);
 `);
 
 // Migration safety net
@@ -383,62 +389,88 @@ app.get("/api/stats", checkReadAccess, (req, res) => {
   res.json({ total, done, pct: total ? Math.round(done / total * 100) : 0, by });
 });
 
-const HABIT_CATEGORIES = ["Worship", "Health", "Data Analyst", "English", "Personal"];
+// ---------------------------------------------------------------------------
+// Habits (user-controlled streak tracking)
+// ---------------------------------------------------------------------------
 
+// GET: list of habit-tracked activities with streak data
 app.get("/api/habits", checkReadAccess, (req, res) => {
-  // All recurring activities count as habits (not limited to specific categories)
-  const rows = db.prepare("SELECT * FROM activities WHERE user_id=? AND recurring != 'none'").all(req.targetUserId);
+  const userId = req.targetUserId;
+  const habitRows = db.prepare(
+    "SELECT h.activity_id, a.title, a.category, a.recurring, a.date, a.days FROM habits h JOIN activities a ON h.activity_id = a.id WHERE h.user_id=?"
+  ).all(userId);
 
-  const groups = {};
-  rows.forEach(a => {
-    const key = a.title + "|" + a.category;
-    (groups[key] ||= { title: a.title, category: a.category, rows: [] }).rows.push(a);
-  });
+  if (!habitRows.length) return res.json([]);
 
-  const allCompletions = db.prepare("SELECT activity_id, date FROM completions WHERE user_id=?").all(req.targetUserId);
+  const allCompletions = db.prepare("SELECT activity_id, date FROM completions WHERE user_id=?").all(userId);
   const completedSet = new Set(allCompletions.map(r => r.activity_id + "|" + r.date));
-
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
-  const result = Object.values(groups).map(g => {
-    const rowForDate = d => g.rows.find(r => occursOn(r, d));
-
+  const result = habitRows.map(a => {
+    // Count current streak (going backwards from today)
     let current = 0;
     let d = new Date(today);
     for (let i = 0; i < 3650; i++) {
-      const r = rowForDate(d);
-      if (r) {
-        const done = completedSet.has(r.id + "|" + toISO(d));
+      if (occursOn(a, d)) {
+        const done = completedSet.has(a.activity_id + "|" + toISO(d));
         if (done) current++;
-        else if (i !== 0) break;
+        else if (i !== 0) break; // gap found, stop
       }
       d.setDate(d.getDate() - 1);
     }
 
-    const ids = g.rows.map(r => r.id);
-    const groupDates = allCompletions.filter(c => ids.includes(c.activity_id)).map(c => c.date).sort();
+    // Count best streak ever
+    const actDates = allCompletions.filter(c => c.activity_id === a.activity_id).map(c => c.date).sort();
     let best = current;
-    if (groupDates.length) {
+    if (actDates.length) {
       let run = 0;
-      let dd = parseISO(groupDates[0]);
+      let dd = parseISO(actDates[0]);
       while (dd <= today) {
-        const r = rowForDate(dd);
-        if (r) {
-          if (completedSet.has(r.id + "|" + toISO(dd))) { run++; best = Math.max(best, run); }
+        if (occursOn(a, dd)) {
+          if (completedSet.has(a.activity_id + "|" + toISO(dd))) { run++; best = Math.max(best, run); }
           else run = 0;
         }
         dd.setDate(dd.getDate() + 1);
       }
     }
 
-    // Check if today is scheduled and done
-    const todayRow = rowForDate(today);
-    const todayDone = todayRow ? completedSet.has(todayRow.id + "|" + toISO(today)) : null;
+    const todayDone = occursOn(a, today) ? completedSet.has(a.activity_id + "|" + toISO(today)) : null;
 
-    return { title: g.title, category: g.category, current, best, today_done: todayDone, today_id: todayRow?.id, today_date: toISO(today) };
+    return {
+      activity_id: a.activity_id,
+      title: a.title,
+      category: a.category,
+      current,
+      best,
+      today_done: todayDone,
+      today_date: toISO(today)
+    };
   }).sort((a, b) => b.current - a.current || b.best - a.best);
 
   res.json(result);
+});
+
+// POST: add activity to habit tracking
+app.post("/api/habits/:activityId", authenticate, (req, res) => {
+  const activityId = +req.params.activityId;
+  const act = db.prepare("SELECT id FROM activities WHERE id=? AND user_id=?").get(activityId, req.user.id);
+  if (!act) return res.status(404).json({ error: "Aktivitas tidak ditemukan." });
+  try {
+    db.prepare("INSERT OR IGNORE INTO habits(user_id, activity_id) VALUES(?,?)").run(req.user.id, activityId);
+    res.json({ ok: true });
+  } catch(e) { res.status(400).json({ error: e.message }); }
+});
+
+// DELETE: remove activity from habit tracking
+app.delete("/api/habits/:activityId", authenticate, (req, res) => {
+  db.prepare("DELETE FROM habits WHERE user_id=? AND activity_id=?").run(req.user.id, +req.params.activityId);
+  res.json({ ok: true });
+});
+
+// GET: check if a specific activity is tracked as habit (used by frontend)
+app.get("/api/habits/check/:activityId", authenticate, (req, res) => {
+  const row = db.prepare("SELECT 1 FROM habits WHERE user_id=? AND activity_id=?").get(req.user.id, +req.params.activityId);
+  res.json({ is_habit: !!row });
 });
 
 app.listen(PORT, () => console.log(`Life Scheduler running at http://localhost:${PORT}`));
