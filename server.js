@@ -5,7 +5,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3003;
 const db = new Database(path.join(__dirname, "scheduler.db"));
 const JWT_SECRET = process.env.JWT_SECRET || "super_secret_key_life_scheduler_2026";
 
