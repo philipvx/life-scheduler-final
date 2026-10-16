@@ -382,7 +382,7 @@
       <div class="ana-grid">
         <div class="card">
           <div class="card-head">
-            <h3>Distribusi Kategori (minggu ini)</h3>
+            <h3>Distribusi Kategori (semua aktivitas)</h3>
           </div>
           <div class="bar-list" id="catBars"></div>
         </div>
@@ -403,6 +403,12 @@
           <h3>Tren Penyelesaian 7 Hari</h3>
         </div>
         <div class="trend-row" id="trendRow"></div>
+      </div>
+      <div class="card" style="margin-top:18px">
+        <div class="card-head">
+          <h3>Analitik per Aktivitas <span class="hint" id="anaWindow"></span></h3>
+        </div>
+        <div class="ana-activity-list" id="anaActivityList"></div>
       </div>
     </section>
 
@@ -697,10 +703,17 @@
         <h2 id="sharedTitle">Jadwal Bersama</h2>
         <button class="x-btn" id="btnCloseShared"><svg class="icon icon-sm"><use href="#ic-x"/></svg></button>
       </div>
-      <div class="card-head" style="padding:0 0 12px">
+      <div class="card-head" style="padding:0 0 12px; display:flex; align-items:center; gap:10px; flex-wrap:wrap">
         <input id="sharedDatePick" type="date" class="field" style="width:auto; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); color:var(--text-primary); font-size:12.5px">
+        <button class="btn btn-ghost btn-sm" id="btnSelectActivities" style="margin-left:auto">
+          <svg class="icon icon-sm"><use href="#ic-list"/></svg> Pilih Aktivitas
+        </button>
       </div>
       <div id="sharedBlueFire" class="blue-fire-banner"></div>
+      <div id="sharedSelectWrap" class="hide">
+        <div class="shared-group-head" style="margin:0 0 8px">Pilih aktivitas yang ingin dibagikan ke teman</div>
+        <div id="sharedSelectList" class="shared-select-list"></div>
+      </div>
       <div id="sharedList"></div>
     </div>
   </div>

@@ -82,6 +82,13 @@ CREATE TABLE IF NOT EXISTS shared_streaks (
  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
  UNIQUE(user_a, user_b, date)
 );
+CREATE TABLE IF NOT EXISTS shared_activities (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_id INTEGER NOT NULL,
+ friend_id INTEGER NOT NULL,
+ activity_id INTEGER NOT NULL,
+ UNIQUE(user_id, friend_id, activity_id)
+);
 `);
 
 // Migration safety net
@@ -406,6 +413,40 @@ app.get("/api/stats", checkReadAccess, (req, res) => {
   res.json({ total, done, pct: total ? Math.round(done / total * 100) : 0, by });
 });
 
+// GET /api/analytics — per-activity statistics (all activities), completion over last 30 days
+app.get("/api/analytics", checkReadAccess, (req, res) => {
+  const userId = req.targetUserId;
+  const rows = db.prepare("SELECT * FROM activities WHERE user_id=?").all(userId);
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const from = new Date(today); from.setDate(from.getDate() - 29);
+  const fromStr = toISO(from), toStr = toISO(today);
+
+  const doneSet = new Set(
+    db.prepare("SELECT activity_id, date FROM completions WHERE user_id=? AND date BETWEEN ? AND ?")
+      .all(userId, fromStr, toStr)
+      .map(r => r.activity_id + "|" + r.date)
+  );
+
+  const list = rows.map(a => {
+    const occ = expand(a, fromStr, toStr);
+    let completed = 0;
+    for (const o of occ) if (doneSet.has(a.id + "|" + o.occurrence_date)) completed++;
+    return {
+      id: a.id,
+      title: a.title,
+      category: a.category,
+      priority: a.priority,
+      recurring: a.recurring,
+      occurrences: occ.length,
+      completed,
+      pct: occ.length ? Math.round(completed / occ.length * 100) : 0
+    };
+  });
+
+  res.json({ from: fromStr, to: toStr, list });
+});
+
 // ---------------------------------------------------------------------------
 // Habits (user-controlled streak tracking)
 // ---------------------------------------------------------------------------
@@ -601,8 +642,9 @@ app.delete("/api/friends/:userId", authenticate, (req, res) => {
   const f = db.prepare("SELECT * FROM friendships WHERE user_a=? AND user_b=?").get(x, y);
   if (!f) return res.status(404).json({ error: "Belum berteman." });
   db.prepare("DELETE FROM friendships WHERE id=?").run(f.id);
-  // Also clear any shared streak records for this pair.
+  // Also clear any shared streak records and shared-activity selections for this pair.
   db.prepare("DELETE FROM shared_streaks WHERE user_a=? AND user_b=?").run(x, y);
+  db.prepare("DELETE FROM shared_activities WHERE (user_id=? AND friend_id=?) OR (user_id=? AND friend_id=?)").run(x, y, y, x);
   res.json({ ok: true });
 });
 
@@ -625,6 +667,22 @@ function activitiesOnDate(userId, date) {
   return rows.flatMap(a => expand(a, date, date));
 }
 
+// Helper: the set of activity ids a user has explicitly chosen to share with a friend.
+// Returns null if the user has not made any selection (meaning "share everything" by default).
+function sharedActivityIds(userId, friendId) {
+  const rows = db.prepare("SELECT activity_id FROM shared_activities WHERE user_id=? AND friend_id=?").all(userId, friendId);
+  if (!rows.length) return null;
+  return new Set(rows.map(r => r.activity_id));
+}
+
+// Helper: filter a user's activities down to what they share with `friendId`.
+// If no explicit selection exists, all activities are shared.
+function applySharedSelection(userId, friendId, items) {
+  const sel = sharedActivityIds(userId, friendId);
+  if (sel === null) return items;
+  return items.filter(x => sel.has(x.id));
+}
+
 // GET /api/shared-schedule/:userId?date=YYYY-MM-DD
 // Combined schedule for me + a friend (must be accepted friends).
 app.get("/api/shared-schedule/:userId", authenticate, (req, res) => {
@@ -633,8 +691,8 @@ app.get("/api/shared-schedule/:userId", authenticate, (req, res) => {
   if (!f) return res.status(403).json({ error: "Kalian belum berteman." });
   const date = req.query.date || toISO(new Date());
 
-  const my = activitiesOnDate(req.user.id, date);
-  const their = activitiesOnDate(otherId, date);
+  const my = applySharedSelection(req.user.id, otherId, activitiesOnDate(req.user.id, date));
+  const their = applySharedSelection(otherId, req.user.id, activitiesOnDate(otherId, date));
 
   const doneSet = new Set(
     db.prepare("SELECT activity_id, date FROM completions WHERE date=? AND user_id IN (?,?)")
@@ -647,7 +705,7 @@ app.get("/api/shared-schedule/:userId", authenticate, (req, res) => {
   const myMarked = mark(my, req.user.id);
   const theirMarked = mark(their, otherId);
 
-  // Blue fire: every activity (mine + theirs) must be completed, and there must be at least one activity.
+  // Blue fire: every shared activity (mine + theirs) must be completed, and there must be at least one activity.
   const all = [...myMarked, ...theirMarked];
   const allDone = all.length > 0 && all.every(x => x.completed === 1);
 
@@ -667,6 +725,39 @@ app.get("/api/shared-schedule/:userId", authenticate, (req, res) => {
     blue_fire: allDone,
     streak
   });
+});
+
+// GET /api/shared-activities/:friendId — list my activities + which ones I share with this friend.
+app.get("/api/shared-activities/:friendId", authenticate, (req, res) => {
+  const otherId = +req.params.friendId;
+  const f = areFriends(req.user.id, otherId);
+  if (!f) return res.status(403).json({ error: "Kalian belum berteman." });
+
+  const activities = db.prepare("SELECT id, title, category, start_time, end_time FROM activities WHERE user_id=?").all(req.user.id);
+  const sel = sharedActivityIds(req.user.id, otherId);
+  // If no explicit selection, everything is shared (default).
+  const items = activities.map(a => ({ ...a, shared: sel === null ? true : sel.has(a.id) }));
+  const hasSelection = sel !== null;
+
+  res.json({ friend_id: otherId, has_selection: hasSelection, items });
+});
+
+// PUT /api/shared-activities/:friendId — set which of my activities are shared with this friend.
+// Body: { activity_ids: [1,2,3] } — replaces the selection entirely.
+app.put("/api/shared-activities/:friendId", authenticate, (req, res) => {
+  const otherId = +req.params.friendId;
+  const f = areFriends(req.user.id, otherId);
+  if (!f) return res.status(403).json({ error: "Kalian belum berteman." });
+
+  const ids = Array.isArray(req.body.activity_ids) ? req.body.activity_ids.map(Number).filter(n => Number.isInteger(n)) : [];
+  const tx = db.transaction(() => {
+    db.prepare("DELETE FROM shared_activities WHERE user_id=? AND friend_id=?").run(req.user.id, otherId);
+    for (const id of ids) {
+      db.prepare("INSERT OR IGNORE INTO shared_activities(user_id, friend_id, activity_id) VALUES(?,?,?)").run(req.user.id, otherId, id);
+    }
+  });
+  tx();
+  res.json({ ok: true, activity_ids: ids });
 });
 
 // Helper: consecutive-day blue fire streak count ending today.

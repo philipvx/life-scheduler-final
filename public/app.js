@@ -421,16 +421,21 @@ $("#schToday").onclick = () => { schCursor = new Date(); schCursor.setHours(0, 0
 // ===========================================================================
 async function renderAnalytics() {
   const start = monday(new Date()), end = addDays(start, 6);
-  let all, weekRows;
+  let all, weekRows, analytics;
   try {
-    [all, weekRows] = await Promise.all([api("/api/activities"), api(`/api/activities?from=${iso(start)}&to=${iso(end)}`)]);
+    [all, weekRows, analytics] = await Promise.all([
+      api("/api/activities"),
+      api(`/api/activities?from=${iso(start)}&to=${iso(end)}`),
+      api("/api/analytics")
+    ]);
   } catch (e) { toast(e.message, "error"); return; }
 
   $("#aTemplates").textContent = all.length;
   $("#aFlex").textContent = all.filter(x => x.flexible).length;
 
+  // Category distribution now uses ALL activities (not just this week).
   const byCat = {};
-  weekRows.forEach(x => byCat[x.category] = (byCat[x.category] || 0) + 1);
+  all.forEach(x => byCat[x.category] = (byCat[x.category] || 0) + 1);
   const maxCat = Math.max(1, ...Object.values(byCat));
   const sortedCats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
   $("#aTop").textContent = sortedCats[0] ? sortedCats[0][0] : "—";
@@ -438,7 +443,7 @@ async function renderAnalytics() {
     <div class="bar-row" style="--cat:${catColor(cat)}">
       <div class="br-top"><b>${esc(cat)}</b><span>${n}x</span></div>
       <div class="bar-track"><div class="bar-fill" style="width:${Math.round(n / maxCat * 100)}%"></div></div>
-    </div>`).join("") : `<div class="empty-note">Belum ada data minggu ini.</div>`;
+    </div>`).join("") : `<div class="empty-note">Belum ada aktivitas.</div>`;
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
   let weekTotal = 0, weekDone = 0;
@@ -455,6 +460,38 @@ async function renderAnalytics() {
     <div class="trend-col">
       <div class="trend-bar" style="height:${Math.max(4, t.pct)}%"></div>
       <span>${t.d.toLocaleDateString("id-ID", { weekday: "short" })}</span>
+    </div>`).join("");
+
+  // Per-activity analytics (all activities)
+  renderActivityAnalytics(analytics);
+}
+
+function renderActivityAnalytics(data) {
+  const list = $("#anaActivityList");
+  if (!list) return;
+  const rows = (data && data.list) || [];
+  if (data && data.from && data.to) {
+    $("#anaWindow").textContent = `(${data.from} – ${data.to})`;
+  }
+  if (!rows.length) {
+    list.innerHTML = `<div class="empty-note">Belum ada aktivitas.</div>`;
+    return;
+  }
+  // Sort: highest completion rate first, then by title.
+  const sorted = [...rows].sort((a, b) => b.pct - a.pct || a.title.localeCompare(b.title));
+  list.innerHTML = sorted.map(a => `
+    <div class="ana-act-row" style="--cat:${catColor(a.category)}">
+      <div class="ana-act-top">
+        <div class="ana-act-title">${esc(a.title)}</div>
+        <div class="ana-act-cat">${esc(a.category)}</div>
+      </div>
+      <div class="ana-act-bottom">
+        <div class="bar-track" style="flex:1">
+          <div class="bar-fill" style="width:${a.pct}%; background:${catColor(a.category)}"></div>
+        </div>
+        <div class="ana-act-pct">${a.pct}%</div>
+        <div class="ana-act-count">${a.completed}/${a.occurrences} selesai</div>
+      </div>
     </div>`).join("");
 }
 
@@ -1274,6 +1311,46 @@ async function loadSharedSchedule() {
     </div>`;
 
   $("#sharedList").innerHTML = renderItems(meName, data.me.items) + renderItems(friendName, data.friend.items);
+}
+
+// --- Select which activities to share ---
+$("#btnSelectActivities").onclick = () => {
+  const wrap = $("#sharedSelectWrap");
+  wrap.classList.toggle("hide");
+  if (!wrap.classList.contains("hide")) loadSharedSelection();
+};
+
+async function loadSharedSelection() {
+  if (!sharedFriendId) return;
+  let data;
+  try { data = await api(`/api/shared-activities/${sharedFriendId}`); }
+  catch (e) { toast(e.message, "error"); return; }
+
+  const list = $("#sharedSelectList");
+  if (!data.items.length) {
+    list.innerHTML = `<div class="empty-note">Kamu belum punya aktivitas.</div>`;
+    return;
+  }
+  list.innerHTML = data.items.map(a => `
+    <label class="shared-select-row" style="--cat:${catColor(a.category)}">
+      <input type="checkbox" class="shared-select-cb" data-aid="${a.id}" ${a.shared ? "checked" : ""}>
+      <span class="shared-select-time">${a.start_time}–${a.end_time}</span>
+      <span class="shared-select-title">${esc(a.title)}</span>
+      <span class="shared-select-cat">${esc(a.category)}</span>
+    </label>`).join("");
+
+  list.querySelectorAll(".shared-select-cb").forEach(cb => cb.onchange = async () => {
+    // Collect all currently checked ids and save.
+    const ids = Array.from(list.querySelectorAll(".shared-select-cb:checked")).map(c => +c.dataset.aid);
+    try {
+      await api(`/api/shared-activities/${sharedFriendId}`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activity_ids: ids })
+      });
+      toast("Pilihan aktivitas dibagikan diperbarui.", "success");
+      loadSharedSchedule();
+    } catch (e) { toast(e.message, "error"); }
+  });
 }
 
 function refreshAuthUI() {
