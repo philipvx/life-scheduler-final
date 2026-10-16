@@ -2560,3 +2560,200 @@ h1.page-title {
     padding: 22px
   }
 }
+
+/* ==========================================================================
+   FRIENDS — friend list, affinity, shared schedule, blue fire
+   ========================================================================== */
+.btn-sm {
+  font-size: 12px;
+  padding: 6px 10px;
+}
+
+.friend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.friend-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+}
+
+.friend-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--primary-grad-a);
+  background: linear-gradient(135deg, var(--primary-grad-a), var(--primary-grad-b));
+  color: #fff;
+  font-weight: 800;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.friend-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-name {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.friend-affinity {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.friend-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.affinity-select {
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+/* Blue fire */
+.blue-fire-row {
+  border-left: 3px solid var(--cat-dataanalyst, #8b5cf6);
+}
+
+.blue-fire-row.is-on {
+  border-left: 3px solid #3b82f6;
+  background: color-mix(in srgb, #3b82f6 8%, var(--surface-2));
+}
+
+.blue-fire-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: color-mix(in srgb, #3b82f6 15%, transparent);
+  color: #3b82f6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.blue-fire-banner {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.blue-fire-on {
+  background: color-mix(in srgb, #3b82f6 14%, transparent);
+  color: #3b82f6;
+  border: 1px solid color-mix(in srgb, #3b82f6 35%, transparent);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.blue-fire-on .icon {
+  width: 18px;
+  height: 18px;
+}
+
+.blue-fire-off {
+  background: var(--surface-2);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-soft);
+}
+
+/* Shared schedule modal */
+.shared-group {
+  margin-bottom: 16px;
+}
+
+.shared-group-head {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--text-tertiary);
+  margin-bottom: 8px;
+}
+
+.shared-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--cat, var(--primary));
+  background: var(--surface-2);
+  margin-bottom: 6px;
+}
+
+.shared-row.is-done {
+  opacity: .55;
+}
+
+.shared-time {
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  min-width: 88px;
+}
+
+.shared-title {
+  flex: 1;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.shared-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.shared-check.on {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+@media (max-width: 720px) {
+  .friend-row {
+    flex-wrap: wrap;
+  }
+  .friend-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

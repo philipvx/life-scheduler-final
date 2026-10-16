@@ -91,13 +91,15 @@ const VIEW_META = {
   dashboard: ["Dashboard", "Ringkasan aktivitas dan progres hari ini."],
   calendar: ["Calendar", "Jadwal mingguan berdasarkan jam."],
   schedule: ["My Schedule", "Aktivitas dikelompokkan per hari."],
-  analytics: ["Analytics", "Statistik dan tren produktivitas kamu."]
+  analytics: ["Analytics", "Statistik dan tren produktivitas kamu."],
+  friends: ["Friends", "Teman, afinitas, dan streak berbagi jadwal."]
 };
 function renderActiveView() {
   if (activeView === "dashboard") loadDashboard();
   else if (activeView === "calendar") renderCalendar();
   else if (activeView === "schedule") renderSchedule();
   else if (activeView === "analytics") renderAnalytics();
+  else if (activeView === "friends") renderFriends();
   refreshPetMood();
 }
 function switchView(v) {
@@ -209,6 +211,7 @@ async function loadDashboard() {
     </div>`;
 
   loadHabits();
+  renderBlueFire();
 }
 
 async function loadHabits() {
@@ -1070,7 +1073,210 @@ renderMusicUI();
 // ---------------------------------------------------------------------------
 switchView("dashboard");
 refreshPetMood();
-setInterval(refreshPetMood, 60000);function refreshAuthUI() {
+setInterval(refreshPetMood, 60000);
+
+// ===========================================================================
+// FRIENDS — add friend, affinity, shared schedule, blue fire streak
+// ===========================================================================
+const AFFINITY_LABELS = { saudara: "👨‍👩‍👧 Saudara", sahabat: "🤝 Sahabat" };
+let friendData = { friends: [], incoming: [], outgoing: [] };
+
+async function renderFriends() {
+  if (!window.currentUser) {
+    $("#friendList").innerHTML = `<div class="empty-note">Login untuk melihat dan mengelola teman.</div>`;
+    $("#incomingList").innerHTML = "";
+    $("#blueFireList").innerHTML = "";
+    return;
+  }
+
+  try { friendData = await api("/api/friends"); } catch (e) { toast(e.message, "error"); return; }
+
+  // Friend list (accepted)
+  const fl = $("#friendList");
+  if (!friendData.friends.length) {
+    fl.innerHTML = `<div class="empty-note">Belum ada teman. Klik "Add Teman" untuk menambah.</div>`;
+  } else {
+    fl.innerHTML = friendData.friends.map(f => `
+      <div class="friend-row" data-fid="${f.id}">
+        <div class="friend-avatar">${esc(f.username[0] || "?").toUpperCase()}</div>
+        <div class="friend-info">
+          <div class="friend-name">${esc(f.username)}</div>
+          <div class="friend-affinity">${f.affinity ? AFFINITY_LABELS[f.affinity] : "Belum ada afinitas"}</div>
+        </div>
+        <div class="friend-actions">
+          <select class="affinity-select" data-fid="${f.id}" title="Afinitas">
+            <option value="">— Afinitas —</option>
+            <option value="saudara" ${f.affinity === "saudara" ? "selected" : ""}>Saudara</option>
+            <option value="sahabat" ${f.affinity === "sahabat" ? "selected" : ""}>Sahabat</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" data-share="${f.id}" title="Lihat jadwal bersama">
+            <svg class="icon icon-sm"><use href="#ic-calendar"/></svg> Jadwal
+          </button>
+          <button class="btn btn-danger-ghost btn-sm" data-unfriend="${f.id}" title="Hapus teman">
+            <svg class="icon icon-sm"><use href="#ic-x"/></svg>
+          </button>
+        </div>
+      </div>`).join("");
+
+    fl.querySelectorAll("[data-unfriend]").forEach(b => b.onclick = async () => {
+      if (!confirm("Hapus teman ini?")) return;
+      try { await api(`/api/friends/${b.dataset.unfriend}`, { method: "DELETE" }); toast("Teman dihapus.", "success"); renderFriends(); }
+      catch (e) { toast(e.message, "error"); }
+    });
+    fl.querySelectorAll("[data-share]").forEach(b => b.onclick = () => openSharedSchedule(b.dataset.share));
+    fl.querySelectorAll(".affinity-select").forEach(sel => sel.onchange = async () => {
+      try {
+        await api(`/api/friends/${sel.dataset.fid}/affinity`, {
+          method: "PUT", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ affinity: sel.value || null })
+        });
+        toast(sel.value ? `Afinitas diatur: ${AFFINITY_LABELS[sel.value]}` : "Afinitas dihapus.", "success");
+        renderFriends();
+      } catch (e) { toast(e.message, "error"); }
+    });
+  }
+
+  // Incoming requests
+  const il = $("#incomingList");
+  if (!friendData.incoming.length) {
+    il.innerHTML = `<div class="empty-note">Tidak ada permintaan masuk.</div>`;
+  } else {
+    il.innerHTML = friendData.incoming.map(f => `
+      <div class="friend-row">
+        <div class="friend-avatar">${esc(f.username[0] || "?").toUpperCase()}</div>
+        <div class="friend-info"><div class="friend-name">${esc(f.username)}</div><div class="friend-affinity">Ingin menjadi teman</div></div>
+        <div class="friend-actions">
+          <button class="btn btn-primary btn-sm" data-accept="${f.id}">Terima</button>
+          <button class="btn btn-ghost btn-sm" data-reject="${f.id}">Tolak</button>
+        </div>
+      </div>`).join("");
+    il.querySelectorAll("[data-accept]").forEach(b => b.onclick = async () => {
+      try { await api(`/api/friends/${b.dataset.accept}/accept`, { method: "POST" }); toast("Pertemanan diterima!", "success"); renderFriends(); }
+      catch (e) { toast(e.message, "error"); }
+    });
+    il.querySelectorAll("[data-reject]").forEach(b => b.onclick = async () => {
+      try { await api(`/api/friends/${b.dataset.reject}/reject`, { method: "POST" }); renderFriends(); }
+      catch (e) { toast(e.message, "error"); }
+    });
+  }
+
+  // Blue fire list
+  await renderBlueFire();
+}
+
+function blueFireMarkup(f) {
+  return `
+    <div class="friend-row blue-fire-row ${f.today_done ? "is-on" : ""}">
+      <div class="blue-fire-icon"><svg class="icon"><use href="#ic-flame"/></svg></div>
+      <div class="friend-info">
+        <div class="friend-name">${esc(f.username)} ${f.affinity ? "· " + AFFINITY_LABELS[f.affinity] : ""}</div>
+        <div class="friend-affinity">🔥 ${f.streak} hari streak berdua</div>
+      </div>
+      <div class="friend-actions">
+        <button class="btn btn-ghost btn-sm" data-share="${f.user_id}">Lihat Jadwal</button>
+      </div>
+    </div>`;
+}
+
+async function renderBlueFire() {
+  let bf = [];
+  try { bf = await api("/api/blue-fire"); } catch (e) { return; }
+  const empty = `<div class="empty-note">Api biru muncul saat semua jadwal kamu & teman selesai dicentang pada hari yang sama.</div>`;
+
+  const bl = $("#blueFireList");
+  if (bl) {
+    bl.innerHTML = bf.length ? bf.map(blueFireMarkup).join("") : empty;
+    bl.querySelectorAll("[data-share]").forEach(b => b.onclick = () => openSharedSchedule(b.dataset.share));
+  }
+
+  const db = $("#dashBlueFire");
+  if (db) {
+    db.innerHTML = bf.length ? bf.map(blueFireMarkup).join("") : `<div class="empty-note">Belum ada streak berdua. Tambahkan teman & selesaikan jadwal bersama.</div>`;
+    db.querySelectorAll("[data-share]").forEach(b => b.onclick = () => openSharedSchedule(b.dataset.share));
+  }
+}
+
+// --- Add Friend modal ---
+$("#btnAddFriend").onclick = () => { $("#af_search").value = ""; $("#afResults").innerHTML = `<div class="empty-note">Ketik username untuk mencari.</div>`; $("#addFriendModal").classList.remove("hide"); };
+$("#btnCloseAddFriend").onclick = () => $("#addFriendModal").classList.add("hide");
+$("#addFriendModal").addEventListener("click", e => { if (e.target.id === "addFriendModal") $("#addFriendModal").classList.add("hide"); });
+
+let afSearchTimer = null;
+$("#af_search").oninput = () => {
+  clearTimeout(afSearchTimer);
+  const q = $("#af_search").value.trim();
+  if (!q) { $("#afResults").innerHTML = `<div class="empty-note">Ketik username untuk mencari.</div>`; return; }
+  afSearchTimer = setTimeout(async () => {
+    try {
+      const users = await api("/api/users/search?q=" + encodeURIComponent(q));
+      if (!users.length) { $("#afResults").innerHTML = `<div class="empty-note">Tidak ditemukan.</div>`; return; }
+      $("#afResults").innerHTML = users.map(u => `
+        <div class="friend-row">
+          <div class="friend-avatar">${esc(u.username[0] || "?").toUpperCase()}</div>
+          <div class="friend-info"><div class="friend-name">${esc(u.username)}</div></div>
+          <div class="friend-actions">
+            ${u.status === "accepted" ? `<span class="friend-affinity">Sudah teman</span>` :
+              u.status === "pending" ? `<span class="friend-affinity">Menunggu konfirmasi</span>` :
+              `<button class="btn btn-primary btn-sm" data-add="${u.id}">Add</button>`}
+          </div>
+        </div>`).join("");
+      $("#afResults").querySelectorAll("[data-add]").forEach(b => b.onclick = async () => {
+        try { await api("/api/friends", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: +b.dataset.add }) }); toast("Permintaan terkirim.", "success"); $("#addFriendModal").classList.add("hide"); renderFriends(); }
+        catch (e) { toast(e.message, "error"); }
+      });
+    } catch (e) { toast(e.message, "error"); }
+  }, 300);
+};
+
+// --- Shared schedule modal ---
+let sharedFriendId = null;
+function openSharedSchedule(friendId) {
+  sharedFriendId = friendId;
+  const friend = friendData.friends.find(f => String(f.id) === String(friendId));
+  $("#sharedTitle").textContent = `Jadwal Bersama ${friend ? "· " + friend.username : ""}`;
+  $("#sharedDatePick").value = todayISO();
+  $("#sharedScheduleModal").classList.remove("hide");
+  loadSharedSchedule();
+}
+$("#btnCloseShared").onclick = () => $("#sharedScheduleModal").classList.add("hide");
+$("#sharedScheduleModal").addEventListener("click", e => { if (e.target.id === "sharedScheduleModal") $("#sharedScheduleModal").classList.add("hide"); });
+$("#sharedDatePick").onchange = loadSharedSchedule;
+
+async function loadSharedSchedule() {
+  if (!sharedFriendId) return;
+  const date = $("#sharedDatePick").value || todayISO();
+  let data;
+  try { data = await api(`/api/shared-schedule/${sharedFriendId}?date=${date}`); }
+  catch (e) { toast(e.message, "error"); return; }
+
+  const bf = $("#sharedBlueFire");
+  if (data.all_done && data.blue_fire) {
+    bf.innerHTML = `<div class="blue-fire-on"><svg class="icon"><use href="#ic-flame"/></svg> Api Biru! Semua jadwal kamu & teman selesai hari ini. 🔥 ${data.streak} hari beruntun.</div>`;
+  } else {
+    bf.innerHTML = data.me.items.length === 0 && data.friend.items.length === 0
+      ? `<div class="blue-fire-off">Belum ada aktivitas pada tanggal ini.</div>`
+      : `<div class="blue-fire-off">Belum semua selesai. Centang semua aktivitas kamu & teman untuk memunculkan Api Biru.</div>`;
+  }
+
+  const meName = window.currentUser ? window.currentUser.username : "Saya";
+  const friend = friendData.friends.find(f => String(f.id) === String(sharedFriendId));
+  const friendName = friend ? friend.username : "Teman";
+
+  const renderItems = (name, items) => `
+    <div class="shared-group">
+      <div class="shared-group-head">${esc(name)}</div>
+      ${items.length ? items.map(x => `
+        <div class="shared-row ${x.completed ? "is-done" : ""}" style="--cat:${catColor(x.category)}">
+          <div class="shared-time">${x.start_time}–${x.end_time}</div>
+          <div class="shared-title">${esc(x.title)}</div>
+          <div class="shared-check ${x.completed ? "on" : ""}">${x.completed ? "✓" : ""}</div>
+        </div>`).join("") : `<div class="empty-note">Tidak ada aktivitas.</div>`}
+    </div>`;
+
+  $("#sharedList").innerHTML = renderItems(meName, data.me.items) + renderItems(friendName, data.friend.items);
+}
+
+function refreshAuthUI() {
   const isGuest = !window.currentUser || window.currentUser.id != window.viewedUserId;
   if (isGuest) {
     $("#btnAdd").style.display = "none";

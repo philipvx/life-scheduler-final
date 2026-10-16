@@ -100,6 +100,18 @@
         <circle cx="6.5" cy="17.5" r="2.7" />
         <circle cx="17.5" cy="15.5" r="2.7" />
       </symbol>
+      <symbol id="ic-friends" viewBox="0 0 24 24">
+        <circle cx="9" cy="8" r="3.4" />
+        <path d="M3 20v-1.2A4.8 4.8 0 0 1 7.8 14h2.4a4.8 4.8 0 0 1 4.8 4.8V20" />
+        <circle cx="17.5" cy="9.5" r="2.6" />
+        <path d="M15 14.6a4.8 4.8 0 0 1 4 4.7V20" />
+      </symbol>
+      <symbol id="ic-heart" viewBox="0 0 24 24">
+        <path d="M12 20.5S4 15.5 4 9.6A4.1 4.1 0 0 1 12 7a4.1 4.1 0 0 1 8 2.6c0 5.9-8 10.9-8 10.9Z" />
+      </symbol>
+      <symbol id="ic-flame" viewBox="0 0 24 24">
+        <path d="M12 2c1 3.5 5 5 5 10a5 5 0 0 1-10 0c0-2 .9-3.4 1.8-4.5.5 1 1.3 1.6 2.2 1.8C10.2 7.4 10.8 4.6 12 2Z" />
+      </symbol>
     </defs>
   </svg>
 
@@ -129,6 +141,9 @@
       <button class="nav" data-v="analytics"><svg class="icon">
           <use href="#ic-chart" />
         </svg><span>Analytics</span></button>
+      <button class="nav" data-v="friends"><svg class="icon">
+          <use href="#ic-friends" />
+        </svg><span>Friends</span></button>
     </nav>
 
     <div class="side-widget">
@@ -313,6 +328,13 @@
         </div>
         <div class="habit-list" id="habitList"></div>
       </div>
+
+      <div class="card" style="margin-top:20px">
+        <div class="card-head">
+          <h3>💙 Api Biru (Streak Berdua)</h3>
+        </div>
+        <div class="friend-list" id="dashBlueFire"></div>
+      </div>
     </section>
 
     <!-- ============================== CALENDAR ============================== -->
@@ -381,6 +403,33 @@
           <h3>Tren Penyelesaian 7 Hari</h3>
         </div>
         <div class="trend-row" id="trendRow"></div>
+      </div>
+    </section>
+
+    <!-- ============================== FRIENDS ============================== -->
+    <section id="friends" class="view hide">
+      <div class="card">
+        <div class="card-head">
+          <h3>Teman</h3>
+          <button class="btn btn-primary btn-sm" id="btnAddFriend"><svg class="icon icon-sm">
+              <use href="#ic-plus" />
+            </svg> Add Teman</button>
+        </div>
+        <div id="friendList" class="friend-list"></div>
+      </div>
+
+      <div class="card" style="margin-top:18px">
+        <div class="card-head">
+          <h3>Permintaan Pertemanan Masuk</h3>
+        </div>
+        <div id="incomingList" class="friend-list"></div>
+      </div>
+
+      <div class="card" style="margin-top:18px">
+        <div class="card-head">
+          <h3>🔥 Api Biru (Streak Berdua)</h3>
+        </div>
+        <div id="blueFireList" class="friend-list"></div>
       </div>
     </section>
   </main>
@@ -623,6 +672,36 @@
           <button type="submit" class="btn btn-primary" style="margin-left:auto">Simpan Profil</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ============================== Add Friend Modal ============================== -->
+  <div id="addFriendModal" class="modal hide">
+    <div class="modal-box" style="max-width:440px">
+      <div class="modal-head">
+        <h2>Add Teman</h2>
+        <button class="x-btn" id="btnCloseAddFriend"><svg class="icon icon-sm"><use href="#ic-x"/></svg></button>
+      </div>
+      <div class="field">
+        <label>Cari Username</label>
+        <input type="text" id="af_search" placeholder="Ketik username untuk mencari…">
+      </div>
+      <div id="afResults" class="friend-list" style="max-height:320px; overflow:auto; margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <!-- ============================== Shared Schedule Modal ============================== -->
+  <div id="sharedScheduleModal" class="modal hide">
+    <div class="modal-box" style="max-width:560px">
+      <div class="modal-head">
+        <h2 id="sharedTitle">Jadwal Bersama</h2>
+        <button class="x-btn" id="btnCloseShared"><svg class="icon icon-sm"><use href="#ic-x"/></svg></button>
+      </div>
+      <div class="card-head" style="padding:0 0 12px">
+        <input id="sharedDatePick" type="date" class="field" style="width:auto; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); color:var(--text-primary); font-size:12.5px">
+      </div>
+      <div id="sharedBlueFire" class="blue-fire-banner"></div>
+      <div id="sharedList"></div>
     </div>
   </div>
 

@@ -65,6 +65,23 @@ CREATE TABLE IF NOT EXISTS habits (
  activity_id INTEGER NOT NULL,
  UNIQUE(user_id, activity_id)
 );
+CREATE TABLE IF NOT EXISTS friendships (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_a INTEGER NOT NULL,
+ user_b INTEGER NOT NULL,
+ status TEXT NOT NULL DEFAULT 'pending',
+ affinity TEXT DEFAULT NULL,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE(user_a, user_b)
+);
+CREATE TABLE IF NOT EXISTS shared_streaks (
+ id INTEGER PRIMARY KEY AUTOINCREMENT,
+ user_a INTEGER NOT NULL,
+ user_b INTEGER NOT NULL,
+ date TEXT NOT NULL,
+ created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+ UNIQUE(user_a, user_b, date)
+);
 `);
 
 // Migration safety net
@@ -407,14 +424,16 @@ app.get("/api/habits", checkReadAccess, (req, res) => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
   const result = habitRows.map(a => {
-    // Count current streak (going backwards from today)
+    // Count current streak (going backwards from today).
+    // A scheduled day that is NOT completed breaks the streak immediately,
+    // so a missed day correctly resets the streak to 0 instead of continuing.
     let current = 0;
     let d = new Date(today);
     for (let i = 0; i < 3650; i++) {
       if (occursOn(a, d)) {
         const done = completedSet.has(a.activity_id + "|" + toISO(d));
         if (done) current++;
-        else if (i !== 0) break; // gap found, stop
+        else break; // scheduled day missed — streak ends (reset to 0)
       }
       d.setDate(d.getDate() - 1);
     }
@@ -471,6 +490,226 @@ app.delete("/api/habits/:activityId", authenticate, (req, res) => {
 app.get("/api/habits/check/:activityId", authenticate, (req, res) => {
   const row = db.prepare("SELECT 1 FROM habits WHERE user_id=? AND activity_id=?").get(req.user.id, +req.params.activityId);
   res.json({ is_habit: !!row });
+});
+
+// ===========================================================================
+// FRIENDS + AFFINITY + SHARED SCHEDULE + BLUE FIRE (api biru)
+// ===========================================================================
+
+// Normalize a friendship pair so user_a is always the smaller id.
+function pair(a, b) { return a < b ? [a, b] : [b, a]; }
+
+function friendshipBetween(a, b) {
+  const [x, y] = pair(a, b);
+  return db.prepare("SELECT * FROM friendships WHERE user_a=? AND user_b=?").get(x, y);
+}
+
+// Is b friends with a? (returns the friendship row if accepted)
+function areFriends(a, b) {
+  const f = friendshipBetween(a, b);
+  return (f && f.status === 'accepted') ? f : null;
+}
+
+// GET /api/friends — my accepted friends, with affinity info + incoming requests + outgoing requests
+app.get("/api/friends", authenticate, (req, res) => {
+  const me = req.user.id;
+  const friends = db.prepare(`
+    SELECT f.id AS friendship_id, f.affinity,
+           u.id, u.username, u.is_public
+    FROM friendships f
+    JOIN users u ON u.id = CASE WHEN f.user_a = ? THEN f.user_b ELSE f.user_a END
+    WHERE (f.user_a = ? OR f.user_b = ?) AND f.status = 'accepted'
+    ORDER BY u.username
+  `).all(me, me, me);
+
+  const incoming = db.prepare(`
+    SELECT f.id AS friendship_id, u.id, u.username, u.is_public
+    FROM friendships f
+    JOIN users u ON u.id = f.user_a
+    WHERE f.user_b = ? AND f.status = 'pending'
+    ORDER BY f.created_at
+  `).all(me);
+
+  const outgoing = db.prepare(`
+    SELECT f.id AS friendship_id, u.id, u.username, u.is_public
+    FROM friendships f
+    JOIN users u ON u.id = f.user_b
+    WHERE f.user_a = ? AND f.status = 'pending'
+    ORDER BY f.created_at
+  `).all(me);
+
+  res.json({ friends, incoming, outgoing });
+});
+
+// GET /api/users/search?q= — find users to add as friend (excludes self + already-friended)
+app.get("/api/users/search", authenticate, (req, res) => {
+  const q = (req.query.q || "").trim();
+  const me = req.user.id;
+  if (!q) return res.json([]);
+  const rows = db.prepare(
+    "SELECT id, username, is_public FROM users WHERE username LIKE ? AND id != ? ORDER BY username LIMIT 20"
+  ).all("%" + q + "%", me);
+
+  const result = rows.map(u => {
+    const f = friendshipBetween(me, u.id);
+    return { ...u, status: f ? f.status : null };
+  });
+  res.json(result);
+});
+
+// POST /api/friends — send a friend request to userId
+app.post("/api/friends", authenticate, (req, res) => {
+  const targetId = +req.body.userId;
+  if (!targetId) return res.status(400).json({ error: "userId wajib diisi." });
+  if (targetId === req.user.id) return res.status(400).json({ error: "Tidak bisa menambah diri sendiri." });
+  const target = db.prepare("SELECT id FROM users WHERE id=?").get(targetId);
+  if (!target) return res.status(404).json({ error: "Pengguna tidak ditemukan." });
+
+  const [x, y] = pair(req.user.id, targetId);
+  const existing = db.prepare("SELECT * FROM friendships WHERE user_a=? AND user_b=?").get(x, y);
+  if (existing) {
+    if (existing.status === 'accepted') return res.status(400).json({ error: "Sudah berteman." });
+    // A pending request already exists — let the other side accept/reject it.
+    return res.status(400).json({ error: "Permintaan pertemanan sudah dikirim." });
+  }
+  db.prepare("INSERT INTO friendships(user_a, user_b, status) VALUES(?,?, 'pending')").run(x, y);
+  res.json({ ok: true });
+});
+
+// POST /api/friends/:userId/accept — accept an incoming friend request
+app.post("/api/friends/:userId/accept", authenticate, (req, res) => {
+  const otherId = +req.params.userId;
+  const [x, y] = pair(req.user.id, otherId);
+  const f = db.prepare("SELECT * FROM friendships WHERE user_a=? AND user_b=?").get(x, y);
+  if (!f || f.status !== 'pending') return res.status(400).json({ error: "Tidak ada permintaan pertemanan." });
+  db.prepare("UPDATE friendships SET status='accepted' WHERE id=?").run(f.id);
+  res.json({ ok: true });
+});
+
+// POST /api/friends/:userId/reject — reject incoming request (or cancel outgoing)
+app.post("/api/friends/:userId/reject", authenticate, (req, res) => {
+  const otherId = +req.params.userId;
+  const [x, y] = pair(req.user.id, otherId);
+  db.prepare("DELETE FROM friendships WHERE user_a=? AND user_b=?").run(x, y);
+  res.json({ ok: true });
+});
+
+// DELETE /api/friends/:userId — unfriend (remove accepted friendship)
+app.delete("/api/friends/:userId", authenticate, (req, res) => {
+  const otherId = +req.params.userId;
+  const [x, y] = pair(req.user.id, otherId);
+  const f = db.prepare("SELECT * FROM friendships WHERE user_a=? AND user_b=?").get(x, y);
+  if (!f) return res.status(404).json({ error: "Belum berteman." });
+  db.prepare("DELETE FROM friendships WHERE id=?").run(f.id);
+  // Also clear any shared streak records for this pair.
+  db.prepare("DELETE FROM shared_streaks WHERE user_a=? AND user_b=?").run(x, y);
+  res.json({ ok: true });
+});
+
+// PUT /api/friends/:userId/affinity — set affinity (saudara / sahabat / null)
+app.put("/api/friends/:userId/affinity", authenticate, (req, res) => {
+  const otherId = +req.params.userId;
+  const f = areFriends(req.user.id, otherId);
+  if (!f) return res.status(400).json({ error: "Kalian belum berteman." });
+  const affinity = req.body.affinity || null; // "saudara" | "sahabat" | null
+  if (affinity && !["saudara", "sahabat"].includes(affinity)) {
+    return res.status(400).json({ error: "Afinitas tidak valid." });
+  }
+  db.prepare("UPDATE friendships SET affinity=? WHERE id=?").run(affinity, f.id);
+  res.json({ ok: true, affinity });
+});
+
+// Helper: activities occurring on a given date for a user (reuses expand/occursOn).
+function activitiesOnDate(userId, date) {
+  const rows = db.prepare("SELECT * FROM activities WHERE user_id=?").all(userId);
+  return rows.flatMap(a => expand(a, date, date));
+}
+
+// GET /api/shared-schedule/:userId?date=YYYY-MM-DD
+// Combined schedule for me + a friend (must be accepted friends).
+app.get("/api/shared-schedule/:userId", authenticate, (req, res) => {
+  const otherId = +req.params.userId;
+  const f = areFriends(req.user.id, otherId);
+  if (!f) return res.status(403).json({ error: "Kalian belum berteman." });
+  const date = req.query.date || toISO(new Date());
+
+  const my = activitiesOnDate(req.user.id, date);
+  const their = activitiesOnDate(otherId, date);
+
+  const doneSet = new Set(
+    db.prepare("SELECT activity_id, date FROM completions WHERE date=? AND user_id IN (?,?)")
+      .all(date, req.user.id, otherId)
+      .map(r => r.user_id + "|" + r.activity_id + "|" + r.date)
+  );
+
+  const mark = (arr, uid) => arr.map(x => ({ ...x, user_id: uid, date, completed: doneSet.has(uid + "|" + x.id + "|" + date) ? 1 : 0 }));
+
+  const myMarked = mark(my, req.user.id);
+  const theirMarked = mark(their, otherId);
+
+  // Blue fire: every activity (mine + theirs) must be completed, and there must be at least one activity.
+  const all = [...myMarked, ...theirMarked];
+  const allDone = all.length > 0 && all.every(x => x.completed === 1);
+
+  // Persist blue fire streak for today if all done.
+  let blueFire = null;
+  if (allDone) {
+    const [x, y] = pair(req.user.id, otherId);
+    db.prepare("INSERT OR IGNORE INTO shared_streaks(user_a, user_b, date) VALUES(?,?,?)").run(x, y, date);
+  }
+  const streak = sharedStreakCount(req.user.id, otherId);
+
+  res.json({
+    date,
+    me: { user_id: req.user.id, items: myMarked },
+    friend: { user_id: otherId, items: theirMarked },
+    all_done: allDone,
+    blue_fire: allDone,
+    streak
+  });
+});
+
+// Helper: consecutive-day blue fire streak count ending today.
+// A missing day resets the streak to 0 (same semantics as habit streaks).
+function sharedStreakCount(a, b) {
+  const [x, y] = pair(a, b);
+  const rows = db.prepare("SELECT date FROM shared_streaks WHERE user_a=? AND user_b=? ORDER BY date ASC").all(x, y);
+  if (!rows.length) return 0;
+  const dates = new Set(rows.map(r => r.date));
+  let cursor = new Date(); cursor.setHours(0, 0, 0, 0);
+  let count = 0;
+  for (let i = 0; i < 3650; i++) {
+    if (dates.has(toISO(cursor))) { count++; }
+    else break;
+    cursor.setDate(cursor.getDate() - 1);
+  }
+  return count;
+}
+
+// GET /api/blue-fire — list blue fire streaks across all my friends (for Dashboard card).
+app.get("/api/blue-fire", authenticate, (req, res) => {
+  const me = req.user.id;
+  const friends = db.prepare(`
+    SELECT u.id, u.username, f.affinity
+    FROM friendships f
+    JOIN users u ON u.id = CASE WHEN f.user_a = ? THEN f.user_b ELSE f.user_a END
+    WHERE (f.user_a = ? OR f.user_b = ?) AND f.status = 'accepted'
+  `).all(me, me, me);
+
+  const result = friends.map(fr => {
+    const streak = sharedStreakCount(me, fr.id);
+    const [x, y] = pair(me, fr.id);
+    const todayDone = db.prepare("SELECT 1 FROM shared_streaks WHERE user_a=? AND user_b=? AND date=?").get(x, y, toISO(new Date()));
+    return {
+      user_id: fr.id,
+      username: fr.username,
+      affinity: fr.affinity,
+      streak,
+      today_done: !!todayDone
+    };
+  });
+
+  res.json(result);
 });
 
 app.listen(PORT, () => console.log(`Life Scheduler running at http://localhost:${PORT}`));
