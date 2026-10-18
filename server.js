@@ -388,6 +388,10 @@ app.patch("/api/activities/:id/toggle", authenticate, (req, res) => {
   const exists = db.prepare("SELECT 1 FROM completions WHERE activity_id=? AND date=? AND user_id=?").get(activityId, date, req.user.id);
   if (exists) db.prepare("DELETE FROM completions WHERE activity_id=? AND date=? AND user_id=?").run(activityId, date, req.user.id);
   else db.prepare("INSERT INTO completions(user_id,activity_id,date) VALUES(?,?,?)").run(req.user.id, activityId, date);
+
+  // Auto-record blue fire streak with any friends whose shared schedule is now fully done.
+  if (!exists) recordBlueFireForUser(req.user.id, date);
+
   res.json({ ok: true, completed: !exists });
 });
 
@@ -683,6 +687,52 @@ function applySharedSelection(userId, friendId, items) {
   return items.filter(x => sel.has(x.id));
 }
 
+// Helper: compute the shared schedule state between two friends for a date,
+// and (optionally) persist the blue-fire streak if everything is completed.
+function computeSharedSchedule(a, b, date) {
+  const my = applySharedSelection(a, b, activitiesOnDate(a, date));
+  const their = applySharedSelection(b, a, activitiesOnDate(b, date));
+
+  const doneSet = new Set(
+    db.prepare("SELECT user_id, activity_id, date FROM completions WHERE date=? AND user_id IN (?,?)")
+      .all(date, a, b)
+      .map(r => r.user_id + "|" + r.activity_id + "|" + r.date)
+  );
+
+  const mark = (arr, uid) => arr.map(x => ({ ...x, user_id: uid, date, completed: doneSet.has(uid + "|" + x.id + "|" + date) ? 1 : 0 }));
+
+  const myMarked = mark(my, a);
+  const theirMarked = mark(their, b);
+
+  // Blue fire: every shared activity (mine + theirs) must be completed, and there must be at least one activity.
+  const all = [...myMarked, ...theirMarked];
+  const allDone = all.length > 0 && all.every(x => x.completed === 1);
+
+  return { myMarked, theirMarked, all, allDone };
+}
+
+// Persist the blue-fire streak for a friendship pair on a date (idempotent).
+function recordBlueFire(a, b, date) {
+  const [x, y] = pair(a, b);
+  db.prepare("INSERT OR IGNORE INTO shared_streaks(user_a, user_b, date) VALUES(?,?,?)").run(x, y, date);
+}
+
+// Auto-record blue fire for every friend of `userId` whose shared schedule is
+// fully completed on `date`. Called whenever an activity is toggled.
+function recordBlueFireForUser(userId, date) {
+  const friends = db.prepare(`
+    SELECT CASE WHEN f.user_a = ? THEN f.user_b ELSE f.user_a END AS friend_id
+    FROM friendships f
+    WHERE (f.user_a = ? OR f.user_b = ?) AND f.status = 'accepted'
+  `).all(userId, userId, userId);
+
+  for (const fr of friends) {
+    const fid = fr.friend_id;
+    const { all, allDone } = computeSharedSchedule(userId, fid, date);
+    if (allDone) recordBlueFire(userId, fid, date);
+  }
+}
+
 // GET /api/shared-schedule/:userId?date=YYYY-MM-DD
 // Combined schedule for me + a friend (must be accepted friends).
 app.get("/api/shared-schedule/:userId", authenticate, (req, res) => {
@@ -691,30 +741,10 @@ app.get("/api/shared-schedule/:userId", authenticate, (req, res) => {
   if (!f) return res.status(403).json({ error: "Kalian belum berteman." });
   const date = req.query.date || toISO(new Date());
 
-  const my = applySharedSelection(req.user.id, otherId, activitiesOnDate(req.user.id, date));
-  const their = applySharedSelection(otherId, req.user.id, activitiesOnDate(otherId, date));
+  const { myMarked, theirMarked, allDone } = computeSharedSchedule(req.user.id, otherId, date);
 
-  const doneSet = new Set(
-    db.prepare("SELECT activity_id, date FROM completions WHERE date=? AND user_id IN (?,?)")
-      .all(date, req.user.id, otherId)
-      .map(r => r.user_id + "|" + r.activity_id + "|" + r.date)
-  );
-
-  const mark = (arr, uid) => arr.map(x => ({ ...x, user_id: uid, date, completed: doneSet.has(uid + "|" + x.id + "|" + date) ? 1 : 0 }));
-
-  const myMarked = mark(my, req.user.id);
-  const theirMarked = mark(their, otherId);
-
-  // Blue fire: every shared activity (mine + theirs) must be completed, and there must be at least one activity.
-  const all = [...myMarked, ...theirMarked];
-  const allDone = all.length > 0 && all.every(x => x.completed === 1);
-
-  // Persist blue fire streak for today if all done.
-  let blueFire = null;
-  if (allDone) {
-    const [x, y] = pair(req.user.id, otherId);
-    db.prepare("INSERT OR IGNORE INTO shared_streaks(user_a, user_b, date) VALUES(?,?,?)").run(x, y, date);
-  }
+  // Persist blue fire streak for this date if all done (idempotent).
+  if (allDone) recordBlueFire(req.user.id, otherId, date);
   const streak = sharedStreakCount(req.user.id, otherId);
 
   res.json({
