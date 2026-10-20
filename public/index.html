@@ -158,65 +158,85 @@
         </svg><span>Friends</span></button>
     </nav>
 
-    <div class="side-widget">
-      <div class="sw-head"><svg class="icon icon-sm">
-          <use href="#ic-zap" />
-        </svg> Auto Scheduler</div>
-      <p><b>P1</b> wajib &nbsp;·&nbsp; <b>P2</b> tinggi<br><b>P3</b> sedang &nbsp;·&nbsp; <b>P4–P5</b> fleksibel</p>
-    </div>
+    <div class="side-settings">
+      <div class="navlabel">Pengaturan</div>
 
-    <div class="side-widget">
-      <div class="sw-head"><svg class="icon icon-sm">
-          <use href="#ic-bell" />
-        </svg> Reminder</div>
-      <p id="remStatus">Dapatkan notifikasi sebelum kegiatan dimulai.</p>
-      <div class="rem-row">
-        <span>Aktifkan</span>
-        <button class="switch" id="remSwitch" aria-label="Toggle reminder"></button>
+      <div class="side-acc">
+        <button type="button" class="side-acc-head">
+          <svg class="icon icon-sm"><use href="#ic-zap" /></svg>
+          <span>Auto Scheduler</span>
+          <svg class="icon icon-sm acc-chev"><use href="#ic-chevr" /></svg>
+        </button>
+        <div class="side-acc-body">
+          <p class="side-acc-p"><b>P1</b> wajib · <b>P2</b> tinggi<br><b>P3</b> sedang · <b>P4–P5</b> fleksibel</p>
+        </div>
       </div>
-      <div class="rem-row" id="remMinutesRow">
-        <span>Ingatkan</span>
-        <select id="remMinutes">
-          <option value="5">5 menit sebelum</option>
-          <option value="10">10 menit sebelum</option>
-          <option value="15">15 menit sebelum</option>
-          <option value="30">30 menit sebelum</option>
-        </select>
-      </div>
-    </div>
 
-    <div class="side-widget">
-      <div class="sw-head"><svg class="icon icon-sm">
-          <use href="#ic-music" />
-        </svg> Musik Latar</div>
-      <p id="musicStatus">Musik ambient santai, diputar terus selama kamu buka web ini.</p>
-      <div class="rem-row">
-        <span>Aktifkan</span>
-        <button class="switch" id="musicSwitch" aria-label="Toggle music"></button>
+      <div class="side-acc">
+        <button type="button" class="side-acc-head">
+          <svg class="icon icon-sm"><use href="#ic-bell" /></svg>
+          <span>Reminder</span>
+          <svg class="icon icon-sm acc-chev"><use href="#ic-chevr" /></svg>
+        </button>
+        <div class="side-acc-body">
+          <p id="remStatus" class="side-acc-p">Dapatkan notifikasi sebelum kegiatan dimulai.</p>
+          <div class="rem-row">
+            <span>Aktifkan</span>
+            <button class="switch" id="remSwitch" aria-label="Toggle reminder"></button>
+          </div>
+          <div class="rem-row" id="remMinutesRow">
+            <span>Ingatkan</span>
+            <select id="remMinutes">
+              <option value="5">5 menit sebelum</option>
+              <option value="10">10 menit sebelum</option>
+              <option value="15">15 menit sebelum</option>
+              <option value="30">30 menit sebelum</option>
+            </select>
+          </div>
+        </div>
       </div>
-      <div class="rem-row" id="musicVolumeRow">
-        <span>Volume</span>
-        <input type="range" id="musicVolume" min="0" max="100" value="35" class="vol-slider">
+
+      <div class="side-acc">
+        <button type="button" class="side-acc-head">
+          <svg class="icon icon-sm"><use href="#ic-music" /></svg>
+          <span>Musik Latar</span>
+          <svg class="icon icon-sm acc-chev"><use href="#ic-chevr" /></svg>
+        </button>
+        <div class="side-acc-body">
+          <p id="musicStatus" class="side-acc-p">Musik ambient santai, diputar terus selama kamu buka web ini.</p>
+          <div class="rem-row">
+            <span>Aktifkan</span>
+            <button class="switch" id="musicSwitch" aria-label="Toggle music"></button>
+          </div>
+          <div class="rem-row" id="musicVolumeRow">
+            <span>Volume</span>
+            <input type="range" id="musicVolume" min="0" max="100" value="35" class="vol-slider">
+          </div>
+        </div>
+      </div>
+
+      <div class="side-acc">
+        <button type="button" class="side-acc-head">
+          <svg class="icon icon-sm"><use href="#ic-calendar" /></svg>
+          <span>Data & Sync</span>
+          <svg class="icon icon-sm acc-chev"><use href="#ic-chevr" /></svg>
+        </button>
+        <div class="side-acc-body">
+          <p id="gcalStatus" class="side-acc-p">Memeriksa status Google Calendar…</p>
+          <div class="data-sync-actions">
+            <button class="btn btn-ghost" id="btnGcalConnect">Hubungkan Google Calendar</button>
+            <button class="btn btn-ghost hide" id="btnGcalSync">Sync Sekarang (14 hari)</button>
+            <button class="btn btn-danger-ghost hide" id="btnGcalDisconnect">Putuskan</button>
+            <div class="data-sync-divider"></div>
+            <button class="btn btn-ghost" id="btnExportJson">Export JSON</button>
+            <button class="btn btn-ghost" id="btnExportIcs">Export .ics</button>
+            <label class="btn btn-ghost" for="importJsonFile">Import JSON</label>
+            <input type="file" id="importJsonFile" accept="application/json" class="hide">
+          </div>
+        </div>
       </div>
     </div>
     <audio id="bgMusic" src="music/snowfall.mp3" loop preload="auto"></audio>
-
-    <div class="side-widget">
-      <div class="sw-head"><svg class="icon icon-sm">
-          <use href="#ic-calendar" />
-        </svg> Data & Sync</div>
-      <p id="gcalStatus">Memeriksa status Google Calendar…</p>
-      <div class="data-sync-actions">
-        <button class="btn btn-ghost" id="btnGcalConnect">Hubungkan Google Calendar</button>
-        <button class="btn btn-ghost hide" id="btnGcalSync">Sync Sekarang (14 hari)</button>
-        <button class="btn btn-danger-ghost hide" id="btnGcalDisconnect">Putuskan</button>
-        <div class="data-sync-divider"></div>
-        <button class="btn btn-ghost" id="btnExportJson">Export JSON</button>
-        <button class="btn btn-ghost" id="btnExportIcs">Export .ics</button>
-        <label class="btn btn-ghost" for="importJsonFile">Import JSON</label>
-        <input type="file" id="importJsonFile" accept="application/json" class="hide">
-      </div>
-    </div>
 
     <div class="pixel-pet-track" aria-hidden="true">
       <div class="pixel-pet-walker">
@@ -226,17 +246,19 @@
       </div>
     </div>
 
-    <div class="theme-toggle hide" id="publicAccessWrap" style="margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:12px">
-      <span id="publicIcon"><svg class="icon icon-sm">
-          <use href="#ic-home" />
-        </svg> <b>Public Access</b></span>
-      <button class="switch" id="publicSwitch" aria-label="Toggle public access"></button>
-    </div>
-    <div class="theme-toggle">
-      <span id="themeIcon"><svg class="icon icon-sm">
-          <use href="#ic-sun" />
-        </svg> <b>Light</b></span>
-      <button class="switch" id="themeSwitch" aria-label="Toggle dark mode"></button>
+    <div class="side-footer">
+      <div class="theme-toggle hide" id="publicAccessWrap">
+        <span id="publicIcon"><svg class="icon icon-sm">
+            <use href="#ic-home" />
+          </svg> <b>Public Access</b></span>
+        <button class="switch" id="publicSwitch" aria-label="Toggle public access"></button>
+      </div>
+      <div class="theme-toggle">
+        <span id="themeIcon"><svg class="icon icon-sm">
+            <use href="#ic-sun" />
+          </svg> <b>Light</b></span>
+        <button class="switch" id="themeSwitch" aria-label="Toggle dark mode"></button>
+      </div>
     </div>
   </aside>
 

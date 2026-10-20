@@ -1709,3 +1709,21 @@ if (document.readyState === "loading") {
 } else {
   startWisdom();
 }
+
+// ===========================================================================
+// SIDEBAR ACCORDION — collapsible settings to keep the sidebar tidy
+// ===========================================================================
+(function initSidebarAccordion() {
+  const items = $$(".side-acc");
+  if (!items.length) return;
+  items.forEach(acc => {
+    const head = acc.querySelector(".side-acc-head");
+    if (!head) return;
+    head.addEventListener("click", () => {
+      const isOpen = acc.classList.contains("open");
+      // Close all, then toggle the clicked one (accordion behavior).
+      items.forEach(x => x.classList.remove("open"));
+      if (!isOpen) acc.classList.add("open");
+    });
+  });
+})();
