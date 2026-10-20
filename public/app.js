@@ -1215,6 +1215,13 @@ function blueFireMarkup(f) {
 }
 
 async function renderBlueFire() {
+  // Blue fire (friendship/affinity) is private — only for the logged-in owner.
+  const isOwner = window.currentUser && window.currentUser.id == window.viewedUserId;
+  const card = $("#dashBlueFireCard");
+  if (card) card.classList.toggle("hide", !isOwner);
+
+  if (!window.currentUser) return;
+
   let bf = [];
   try { bf = await api("/api/blue-fire"); } catch (e) { return; }
   const empty = `<div class="empty-note">Api biru muncul saat semua jadwal kamu & teman selesai dicentang pada hari yang sama.</div>`;
