@@ -361,20 +361,19 @@ async function renderSchedule() {
     const items = rows.filter(x => x.occurrence_date === ds).sort((a, b) => a.start_time.localeCompare(b.start_time));
     const isToday = sameDate(d, today);
     const isPast = isPastDate(ds);
-    return `<div class="day-card ${isToday ? "is-today" : ""} ${isPast ? "is-past" : ""}">
+    return `<div class="day-card ${isToday ? "is-today" : ""}">
       <div class="day-card-head">
         <div class="dch-left">
           <b>${d.toLocaleDateString("id-ID", { weekday: "long" })}</b>
           <span>${d.toLocaleDateString("id-ID", { day: "numeric", month: "long", year: "numeric" })}</span>
         </div>
         <div style="display:flex;gap:6px;align-items:center;">
-          ${isPast ? `<span class="past-lock-badge">🔒 Terkunci</span>` : ""}
           <span class="dch-badge">${items.length} aktivitas</span>
         </div>
       </div>
       <div class="day-card-body">
         ${items.length ? items.map(x => `
-          <div class="sched-row ${x.completed ? "is-done" : ""} ${isPast ? "is-past-row" : ""}" style="--cat:${catColor(x.category)}" data-id="${x.id}" data-occ="${x.occurrence_date}">
+          <div class="sched-row ${x.completed ? "is-done" : ""}" style="--cat:${catColor(x.category)}" data-id="${x.id}" data-occ="${x.occurrence_date}">
             <div class="sched-time">${x.start_time}–${x.end_time}</div>
             <div class="sched-dot"></div>
             <div class="sched-main">
@@ -384,7 +383,7 @@ async function renderSchedule() {
             <div class="sched-actions">
               ${!isPast && isOwner && !x.completed ? `<button class="icon-btn" data-act="focus" title="Mulai fokus"><svg class="icon icon-sm"><use href="#ic-timer"/></svg></button>` : ""}
               ${isOwner ? `<button class="icon-btn check ${x.completed ? "on" : ""}" data-act="toggle" title="${x.completed ? "Batalkan selesai" : "Tandai selesai"}"><svg class="icon icon-sm"><use href="#ic-check"/></svg></button>` : ""}
-              ${!isPast && isOwner ? `<button class="icon-btn" data-act="edit" title="Edit"><svg class="icon icon-sm"><use href="#ic-pencil"/></svg></button>
+              ${isOwner ? `<button class="icon-btn" data-act="edit" title="Edit"><svg class="icon icon-sm"><use href="#ic-pencil"/></svg></button>
               <button class="icon-btn danger" data-act="del" title="Hapus"><svg class="icon icon-sm"><use href="#ic-trash"/></svg></button>` : ""}
             </div>
           </div>`).join("") : `<div class="day-empty">Tidak ada aktivitas.</div>`}

@@ -469,16 +469,21 @@ app.get("/api/habits", checkReadAccess, (req, res) => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
   const result = habitRows.map(a => {
-    // Count current streak (going backwards from today).
-    // A scheduled day that is NOT completed breaks the streak immediately,
-    // so a missed day correctly resets the streak to 0 instead of continuing.
+    // Count current streak (going backwards).
+    // Today gets a grace period: if today's occurrence is not yet completed,
+    // start counting from yesterday so the streak isn't reset just because the
+    // day hasn't been checked off yet. Any *past* scheduled day that is missed
+    // breaks the streak and resets it to 0.
     let current = 0;
     let d = new Date(today);
+    if (!(occursOn(a, d) && completedSet.has(a.activity_id + "|" + toISO(d)))) {
+      d.setDate(d.getDate() - 1);
+    }
     for (let i = 0; i < 3650; i++) {
       if (occursOn(a, d)) {
         const done = completedSet.has(a.activity_id + "|" + toISO(d));
         if (done) current++;
-        else break; // scheduled day missed — streak ends (reset to 0)
+        else break; // past scheduled day missed — streak ends (reset to 0)
       }
       d.setDate(d.getDate() - 1);
     }
