@@ -1609,3 +1609,103 @@ async function saveCategories() {
     }
   } catch(e) { toast(e.message, 'error'); }
 }
+
+// ===========================================================================
+// HADITS & AYAT — rotating wisdom matched to the user's schedule categories
+// ===========================================================================
+const WISDOM = [
+  // Worship / Ibadah
+  { cat: "Worship", text: "Sesungguhnya amal itu tergantung pada niatnya, dan setiap orang akan mendapat (balasan) sesuai dengan apa yang ia niatkan.", ref: "HR. Bukhari & Muslim", kind: "hadits" },
+  { cat: "Worship", text: "Dan dirikanlah shalat, karena sesungguhnya shalat itu mencegah dari perbuatan keji dan mungkar.", ref: "QS. Al-'Ankabut: 45", kind: "ayat" },
+  { cat: "Worship", text: "Shalatlah kalian sebagaimana kalian melihat aku shalat.", ref: "HR. Bukhari", kind: "hadits" },
+  { cat: "Worship", text: "Sesungguhnya shalatku, ibadahku, hidupku, dan matiku hanyalah untuk Allah, Tuhan semesta alam.", ref: "QS. Al-An'am: 162", kind: "ayat" },
+  // Academic / Ilmu
+  { cat: "Academic", text: "Barangsiapa menempuh jalan untuk mencari ilmu, maka Allah akan mudahkan baginya jalan menuju surga.", ref: "HR. Muslim", kind: "hadits" },
+  { cat: "Academic", text: "Allah akan meninggikan orang-orang yang beriman di antaramu dan orang-orang yang diberi ilmu beberapa derajat.", ref: "QS. Al-Mujadilah: 11", kind: "ayat" },
+  { cat: "Academic", text: "Menuntut ilmu itu wajib atas setiap muslim.", ref: "HR. Ibnu Majah", kind: "hadits" },
+  { cat: "Academic", text: "Katakanlah: \"Tuhanku, tambahkanlah kepadaku ilmu pengetahuan.\"", ref: "QS. Thaha: 114", kind: "ayat" },
+  // KP / Kerja & Profesi
+  { cat: "KP", text: "Sesungguhnya Allah mencintai apabila salah seorang di antara kalian mengerjakan suatu pekerjaan, ia melakukannya dengan itqan (teliti/sempurna).", ref: "HR. Thabrani", kind: "hadits" },
+  { cat: "KP", text: "Dan katakanlah: \"Bekerjalah kamu, maka Allah dan Rasul-Nya serta orang-orang mukmin akan melihat pekerjaanmu.\"", ref: "QS. At-Taubah: 105", kind: "ayat" },
+  // Bootcamp / Belajar & Tekad
+  { cat: "Bootcamp", text: "Orang yang kuat bukanlah yang pandai bergulat, tetapi yang mampu menahan dirinya ketika marah.", ref: "HR. Bukhari & Muslim", kind: "hadits" },
+  { cat: "Bootcamp", text: "Dan bersabarlah kamu, sesungguhnya janji Allah adalah benar.", ref: "QS. Ar-Rum: 60", kind: "ayat" },
+  // English / Bahasa & Komunikasi
+  { cat: "English", text: "Barangsiapa yang beriman kepada Allah dan hari akhir, hendaklah ia berkata baik atau diam.", ref: "HR. Bukhari & Muslim", kind: "hadits" },
+  { cat: "English", text: "Dan katakanlah kepada hamba-hamba-Ku, \"Hendaklah mereka mengucapkan perkataan yang lebih baik.\"", ref: "QS. Al-Isra: 53", kind: "ayat" },
+  // Data Analyst / Ketelitian & Kebenaran
+  { cat: "Data Analyst", text: "Dan janganlah kamu campuradukkan kebenaran dengan kebatilan, dan janganlah kamu sembunyikan kebenaran itu, sedang kamu mengetahuinya.", ref: "QS. Al-Baqarah: 42", kind: "ayat" },
+  { cat: "Data Analyst", text: "Wahai orang-orang yang beriman, jadilah kamu orang yang benar-benar penegak keadilan, menjadi saksi karena Allah.", ref: "QS. An-Nisa: 135", kind: "ayat" },
+  // Health / Kesehatan
+  { cat: "Health", text: "Mukmin yang kuat lebih baik dan lebih dicintai Allah daripada mukmin yang lemah, dan pada keduanya ada kebaikan.", ref: "HR. Muslim", kind: "hadits" },
+  { cat: "Health", text: "Dan makan serta minumlah, dan janganlah berlebih-lebihan. Sesungguhnya Allah tidak menyukai orang yang berlebih-lebihan.", ref: "QS. Al-A'raf: 31", kind: "ayat" },
+  // Rest / Istirahat
+  { cat: "Rest", text: "Sesungguhnya badanmu memiliki hak atasmu, matamu memiliki hak atasmu, dan keluargamu memiliki hak atasmu.", ref: "HR. Bukhari", kind: "hadits" },
+  { cat: "Rest", text: "Dan Kami jadikan tidurmu untuk istirahat.", ref: "QS. An-Naba: 9", kind: "ayat" },
+  // Personal / Umum
+  { cat: "Personal", text: "Sebaik-baik manusia adalah yang paling bermanfaat bagi manusia lainnya.", ref: "HR. Ahmad & Thabrani", kind: "hadits" },
+  { cat: "Personal", text: "Dan barangsiapa bertawakal kepada Allah, niscaya Allah akan mencukupkan (keperluan)nya.", ref: "QS. At-Talaq: 3", kind: "ayat" },
+  { cat: "Personal", text: "Sesungguhnya bersama kesulitan ada kemudahan.", ref: "QS. Al-Insyirah: 6", kind: "ayat" }
+];
+
+let wisdomQueue = [];
+let wisdomTimer = null;
+const WISDOM_INTERVAL = 3 * 60 * 1000; // rotate every 3 minutes
+
+// Build a queue of wisdom entries relevant to the user's schedule categories.
+async function refreshWisdomQueue() {
+  let cats = Object.keys(CATS);
+  try {
+    const acts = await api("/api/activities");
+    const set = new Set(acts.map(a => a.category));
+    if (set.size) cats = Array.from(set);
+  } catch (e) { /* fall back to default categories */ }
+
+  const matched = WISDOM.filter(w => cats.includes(w.cat));
+  const pool = matched.length ? matched : WISDOM;
+  // Shuffle deterministically-ish for variety each refresh.
+  wisdomQueue = [...pool].sort(() => Math.random() - 0.5);
+}
+
+function renderWisdom() {
+  const textEl = $("#wisdomText");
+  const refEl = $("#wisdomRef");
+  const card = $("#wisdomCard");
+  if (!textEl || !refEl || !card) return;
+
+  if (!wisdomQueue.length) {
+    wisdomQueue = [...WISDOM];
+  }
+  const w = wisdomQueue.shift();
+  wisdomQueue.push(w); // cycle
+
+  const label = w.kind === "hadits" ? "Hadits" : "Ayat";
+  textEl.textContent = `“${w.text}”`;
+  refEl.textContent = `${label} · ${w.ref}${w.cat ? " · " + w.cat : ""}`;
+
+  // subtle re-entry animation
+  card.classList.remove("wisdom-in");
+  void card.offsetWidth; // reflow to restart animation
+  card.classList.add("wisdom-in");
+}
+
+function startWisdom() {
+  stopWisdom();
+  refreshWisdomQueue().then(() => renderWisdom());
+  wisdomTimer = setInterval(async () => {
+    // Periodically re-sync categories so new activities are reflected.
+    await refreshWisdomQueue();
+    renderWisdom();
+  }, WISDOM_INTERVAL);
+}
+
+function stopWisdom() {
+  if (wisdomTimer) { clearInterval(wisdomTimer); wisdomTimer = null; }
+}
+
+// Kick off wisdom on load, and re-sync categories whenever the user changes.
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", startWisdom);
+} else {
+  startWisdom();
+}

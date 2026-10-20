@@ -3360,3 +3360,80 @@ textarea:focus-visible {
 
 /* Keep content above the decorative layer (aside is already fixed z-20) */
 main { position: relative; z-index: 1; }
+
+/* ==========================================================================
+   WISDOM CARD — rotating hadits & ayat matched to schedule categories
+   ========================================================================== */
+.wisdom-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 20px 0 0;
+  padding: 20px 24px;
+  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--gold) 32%, var(--border));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--gold) 8%, var(--surface)), var(--surface));
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.wisdom-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--gold), var(--gold-deep));
+}
+
+.wisdom-ornament {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--gold) 16%, transparent);
+  color: var(--gold-deep);
+}
+[data-theme="dark"] .wisdom-ornament { color: var(--gold-light); }
+
+.wisdom-ornament .icon { width: 26px; height: 26px; }
+
+.wisdom-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.wisdom-text {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.6;
+  color: var(--text-primary);
+  letter-spacing: -.005em;
+}
+
+.wisdom-ref {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold-deep);
+  letter-spacing: .02em;
+}
+[data-theme="dark"] .wisdom-ref { color: var(--gold-light); }
+
+.wisdom-card.wisdom-in {
+  animation: wisdom-in .6s cubic-bezier(.22, .8, .32, 1);
+}
+@keyframes wisdom-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 640px) {
+  .wisdom-card { flex-direction: column; align-items: flex-start; gap: 12px; }
+  .wisdom-text { font-size: 14px; }
+}

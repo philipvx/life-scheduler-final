@@ -469,32 +469,31 @@ app.get("/api/habits", checkReadAccess, (req, res) => {
   const today = new Date(); today.setHours(0, 0, 0, 0);
 
   const result = habitRows.map(a => {
-    // Count current streak (going backwards).
-    // Today gets a grace period: if today's occurrence is not yet completed,
-    // start counting from yesterday so the streak isn't reset just because the
-    // day hasn't been checked off yet. Any *past* scheduled day that is missed
-    // breaks the streak and resets it to 0.
+    // Count current streak: the consecutive run of completed days ending at the
+    // most-recently completed day (which may be today, a past day, or even a
+    // future day the user pre-checked). This lets the user "patch" a missed day
+    // and have the streak reconnect, rather than permanently losing it.
+    const actDates = allCompletions.filter(c => c.activity_id === a.activity_id).map(c => c.date).sort();
     let current = 0;
-    let d = new Date(today);
-    if (!(occursOn(a, d) && completedSet.has(a.activity_id + "|" + toISO(d)))) {
-      d.setDate(d.getDate() - 1);
-    }
-    for (let i = 0; i < 3650; i++) {
-      if (occursOn(a, d)) {
-        const done = completedSet.has(a.activity_id + "|" + toISO(d));
-        if (done) current++;
-        else break; // past scheduled day missed — streak ends (reset to 0)
+    if (actDates.length) {
+      const latestDone = actDates[actDates.length - 1]; // ISO dates sort lexicographically
+      let d = parseISO(latestDone);
+      for (let i = 0; i < 3650; i++) {
+        if (occursOn(a, d)) {
+          if (completedSet.has(a.activity_id + "|" + toISO(d))) current++;
+          else break; // scheduled day missed — streak ends
+        }
+        d.setDate(d.getDate() - 1);
       }
-      d.setDate(d.getDate() - 1);
     }
 
-    // Count best streak ever
-    const actDates = allCompletions.filter(c => c.activity_id === a.activity_id).map(c => c.date).sort();
+    // Count best streak ever (longest consecutive run across all history)
     let best = current;
     if (actDates.length) {
       let run = 0;
       let dd = parseISO(actDates[0]);
-      while (dd <= today) {
+      const maxDay = parseISO(actDates[actDates.length - 1]);
+      while (dd <= maxDay) {
         if (occursOn(a, dd)) {
           if (completedSet.has(a.activity_id + "|" + toISO(dd))) { run++; best = Math.max(best, run); }
           else run = 0;
@@ -795,14 +794,16 @@ app.put("/api/shared-activities/:friendId", authenticate, (req, res) => {
   res.json({ ok: true, activity_ids: ids });
 });
 
-// Helper: consecutive-day blue fire streak count ending today.
-// A missing day resets the streak to 0 (same semantics as habit streaks).
+// Helper: consecutive-day blue fire streak count, ending at the most recently
+// earned day (may be today, a past day, or a future day). A missing day resets
+// the run, but the user can "patch" a missed day and reconnect the streak.
 function sharedStreakCount(a, b) {
   const [x, y] = pair(a, b);
   const rows = db.prepare("SELECT date FROM shared_streaks WHERE user_a=? AND user_b=? ORDER BY date ASC").all(x, y);
   if (!rows.length) return 0;
   const dates = new Set(rows.map(r => r.date));
-  let cursor = new Date(); cursor.setHours(0, 0, 0, 0);
+  const latest = rows[rows.length - 1].date; // ISO dates sort lexicographically
+  let cursor = parseISO(latest);
   let count = 0;
   for (let i = 0; i < 3650; i++) {
     if (dates.has(toISO(cursor))) { count++; }
