@@ -2867,3 +2867,285 @@ h1.page-title {
   color: var(--text-tertiary);
   flex-shrink: 0;
 }
+
+/* ==========================================================================
+   DESIGN REFRESH — refined, premium visual system
+   Overrides the base styles above without changing any class hooks / JS logic.
+   ========================================================================== */
+
+/* ---------- Tokens ---------- */
+:root {
+  --font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Sora", var(--font);
+
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 18px;
+  --r-xl: 22px;
+  --r-2xl: 28px;
+
+  --sidebar-w: 268px;
+}
+
+:root,
+[data-theme="light"] {
+  --bg: #f4f5f9;
+  --bg-elevated: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f7f8fc;
+  --surface-hover: #eef0f7;
+  --sidebar-bg: #fbfbfe;
+  --border: #e7e8f0;
+  --border-soft: #eef0f6;
+  --text-primary: #151722;
+  --text-secondary: #5c5f73;
+  --text-tertiary: #9a9db1;
+
+  --primary: #5b5bd6;
+  --primary-600: #4b4bc4;
+  --primary-soft: #efeffb;
+  --primary-grad-a: #6a6ae0;
+  --primary-grad-b: #8f6be8;
+
+  --shadow-sm: 0 1px 2px rgba(23, 24, 40, .04), 0 1px 3px rgba(23, 24, 40, .04);
+  --shadow-md: 0 8px 24px -10px rgba(23, 24, 40, .14), 0 2px 8px -2px rgba(23, 24, 40, .05);
+  --shadow-lg: 0 24px 50px -20px rgba(23, 24, 40, .28);
+  --hero-grad: linear-gradient(130deg, #4b4bc4 0%, #6a5ad0 45%, #9a6be0 100%);
+  --scrim: rgba(20, 21, 34, .44);
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg: #0b0c11;
+  --bg-elevated: #13141c;
+  --surface: #151620;
+  --surface-2: #191a26;
+  --surface-hover: #20222f;
+  --sidebar-bg: #0f1017;
+  --border: #242634;
+  --border-soft: #20222e;
+  --text-primary: #eceef6;
+  --text-secondary: #9b9db1;
+  --text-tertiary: #676a80;
+
+  --primary: #7c7ce8;
+  --primary-600: #8d8df0;
+  --primary-soft: rgba(124, 124, 232, .16);
+  --primary-grad-a: #7c7ce8;
+  --primary-grad-b: #9b7bee;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, .4);
+  --shadow-md: 0 12px 32px -10px rgba(0, 0, 0, .6);
+  --shadow-lg: 0 28px 60px -18px rgba(0, 0, 0, .75);
+  --hero-grad: linear-gradient(130deg, #3d3dc0 0%, #5548b8 50%, #7a58c8 100%);
+  --scrim: rgba(0, 0, 0, .6);
+}
+
+/* ---------- Base ---------- */
+body {
+  font-size: 14px;
+  letter-spacing: -.005em;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  letter-spacing: -.02em;
+}
+
+/* Softer, more premium scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover { background-color: var(--text-tertiary); }
+
+.icon { stroke-width: 1.7; }
+
+/* ---------- Sidebar ---------- */
+aside {
+  padding: 22px 14px;
+  gap: 4px;
+  border-right: 1px solid var(--border-soft);
+}
+
+.brand { padding: 4px 8px 2px; }
+.brand b { font-family: var(--font-display); font-weight: 700; font-size: 15px; }
+.logo { border-radius: 14px; box-shadow: 0 8px 18px -8px rgba(91, 91, 214, .7); }
+
+nav { margin-top: 26px; gap: 2px; }
+.navlabel { font-size: 10.5px; padding: 0 12px; margin: 4px 0 8px; }
+
+.nav {
+  padding: 10px 12px;
+  border-radius: 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.nav:hover { background: var(--surface-hover); color: var(--text-primary); }
+.nav.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+.nav.active .icon { stroke: var(--primary); }
+
+.side-widget {
+  padding: 14px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-soft);
+}
+.side-widget .sw-head { color: var(--primary); font-family: var(--font-display); }
+
+.theme-toggle {
+  border-radius: 12px;
+  padding: 9px 12px;
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  letter-spacing: -.005em;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-grad-a), var(--primary-grad-b));
+  box-shadow: 0 8px 20px -8px rgba(91, 91, 214, .7);
+}
+.btn-primary:hover { box-shadow: 0 12px 28px -8px rgba(91, 91, 214, .8); transform: translateY(-1px); }
+.btn-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--text-secondary); }
+.btn-ghost:hover { background: var(--surface-hover); border-color: var(--border); }
+
+/* ---------- Topbar ---------- */
+.eyebrow { font-size: 11px; letter-spacing: .14em; }
+h1.page-title { font-size: 26px; font-weight: 800; font-family: var(--font-display); }
+.page-sub { font-size: 13.5px; }
+
+/* ---------- Cards ---------- */
+.card {
+  border-radius: 20px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.card-head h3 { font-size: 15px; font-weight: 700; font-family: var(--font-display); }
+
+/* ---------- Hero ---------- */
+.hero {
+  border-radius: 24px;
+  padding: 32px 36px;
+  box-shadow: 0 24px 50px -22px rgba(75, 75, 196, .55);
+}
+.hero::after {
+  background:
+    radial-gradient(520px 260px at 90% 0%, rgba(255, 255, 255, .16), transparent 62%),
+    radial-gradient(320px 200px at 30% 120%, rgba(255, 255, 255, .07), transparent 60%);
+}
+.hero h2 { font-family: var(--font-display); font-size: 26px; letter-spacing: -.02em; }
+.hero-meta div {
+  background: rgba(255, 255, 255, .12);
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 12px;
+  backdrop-filter: blur(4px);
+}
+.ring-pct { font-family: var(--font-display); font-weight: 800; }
+
+/* ---------- Stat cards ---------- */
+.stat-card {
+  border-radius: 16px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.stat-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+.stat-ic { border-radius: 12px; width: 40px; height: 40px; }
+.stat-card b { font-family: var(--font-display); font-size: 22px; }
+
+/* ---------- Timeline ---------- */
+.t-body {
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+.t-title { font-weight: 600; font-size: 13.5px; }
+.t-dot { box-shadow: 0 0 0 4px color-mix(in srgb, var(--cat, var(--primary)) 16%, transparent); }
+
+/* ---------- Habit cards ---------- */
+.habit-card {
+  border-radius: 14px;
+  padding: 16px;
+  border: 1px solid var(--border-soft);
+  transition: transform .16s ease, box-shadow .16s ease;
+}
+.habit-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+.habit-card .hc-streak b { font-family: var(--font-display); font-size: 24px; }
+
+/* ---------- Calendar ---------- */
+.cal-grid-wrap { border-radius: 16px; border: 1px solid var(--border); }
+.cal-event { border-radius: 10px; }
+
+/* ---------- My Schedule ---------- */
+.day-card { border-radius: 18px; }
+.day-card-head { padding: 16px 20px; }
+.sched-row { border-radius: 12px; }
+
+/* ---------- Analytics ---------- */
+.mini-stat { border-radius: 14px; padding: 16px; }
+.mini-stat b { font-family: var(--font-display); }
+
+/* ---------- Modal ---------- */
+.modal { backdrop-filter: blur(6px); }
+.modal-box {
+  border-radius: 24px;
+  padding: 28px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border);
+}
+.modal-head h2 { font-family: var(--font-display); font-size: 18px; }
+
+.field input[type=text],
+.field input[type=date],
+.field input[type=time],
+.field select,
+.field textarea {
+  border-radius: 12px;
+  padding: 11px 13px;
+  background: var(--surface-2);
+}
+.field input:focus,
+.field select:focus,
+.field textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 14%, transparent);
+}
+
+/* ---------- Friends / blue fire ---------- */
+.friend-row { border-radius: 14px; padding: 13px 15px; }
+.friend-avatar {
+  background: linear-gradient(135deg, var(--primary-grad-a), var(--primary-grad-b));
+  font-family: var(--font-display);
+}
+.blue-fire-icon { border-radius: 12px; }
+.shared-row { border-radius: 12px; }
+.ana-act-row { border-radius: 14px; }
+
+/* ---------- Toast ---------- */
+.toast { border-radius: 14px; box-shadow: var(--shadow-lg); }
+
+/* ---------- Focus widget ---------- */
+.focus-widget { border-radius: 18px; box-shadow: var(--shadow-lg); }
+.focus-time { font-family: var(--font-display); }
+
+/* ---------- Focus rings for accessibility ---------- */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
