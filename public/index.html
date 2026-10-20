@@ -112,16 +112,28 @@
       <symbol id="ic-flame" viewBox="0 0 24 24">
         <path d="M12 2c1 3.5 5 5 5 10a5 5 0 0 1-10 0c0-2 .9-3.4 1.8-4.5.5 1 1.3 1.6 2.2 1.8C10.2 7.4 10.8 4.6 12 2Z" />
       </symbol>
+      <symbol id="ic-crescent" viewBox="0 0 24 24">
+        <path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" />
+        <path d="M16.6 7.4l.9 2.2 2.3.4-1.7 1.6.4 2.2-1.9-1.2-1.9 1.2.4-2.2-1.7-1.6 2.3-.4z" fill="currentColor" stroke="none" />
+      </symbol>
     </defs>
   </svg>
+
+  <!-- Decorative twinkling stars + crescent (pure CSS, non-interactive) -->
+  <div class="bg-decor" aria-hidden="true">
+    <div class="bg-crescent"></div>
+    <i class="star s1"></i><i class="star s2"></i><i class="star s3"></i>
+    <i class="star s4"></i><i class="star s5"></i><i class="star s6"></i>
+    <i class="star s7"></i><i class="star s8"></i><i class="star s9"></i>
+    <i class="star s10"></i><i class="star s11"></i><i class="star s12"></i>
+  </div>
 
   <aside>
     <div class="brand">
       <div class="logo">
         <svg class="logo-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M7.5 2.8v3.4M16.5 2.8v3.4M4 8.6h16" />
-          <rect x="3.5" y="5" width="17" height="16" rx="4.5" />
-          <path d="M8.3 14.3 10.7 16.7 15.8 11.2" />
+          <path d="M20.5 14.5A8.5 8.5 0 1 1 9.5 3.5a7 7 0 0 0 11 11Z" />
+          <path d="M16.6 7.4l.9 2.2 2.3.4-1.7 1.6.4 2.2-1.9-1.2-1.9 1.2.4-2.2-1.7-1.6 2.3-.4z" fill="currentColor" stroke="none" />
         </svg>
       </div>
       <div><b>Life Scheduler</b><small>PERSONAL OS</small></div>
@@ -246,10 +258,11 @@
     <!-- ============================== DASHBOARD ============================== -->
     <section id="dashboard" class="view">
       <div class="hero">
+        <div class="hero-crescent"><svg class="icon"><use href="#ic-crescent"/></svg></div>
         <div class="hero-left">
           <p class="hero-eyebrow" id="greeting">Selamat datang kembali</p>
           <h2 id="todayText">—</h2>
-          <span class="muted" id="heroStatus" style="color:#c7c6ea; font-size:12.5px">Memuat jadwal…</span>
+          <span class="muted" id="heroStatus" style="color:#e8dcc0; font-size:12.5px">Memuat jadwal…</span>
           <div class="hero-meta">
             <div><small>Aktivitas</small><b id="mTotal">0</b></div>
             <div><small>Selesai</small><b id="mDone">0</b></div>

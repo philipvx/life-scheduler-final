@@ -3149,3 +3149,214 @@ textarea:focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+
+/* ==========================================================================
+   ISLAMIC MODERN THEME — gold + emerald + ivory, twinkling moon & stars
+   ========================================================================== */
+
+/* ---------- Palette ---------- */
+:root {
+  --gold: #d4af37;
+  --gold-light: #e9c767;
+  --gold-deep: #b8912a;
+  --emerald: #0f766e;
+  --emerald-deep: #0b5d57;
+  --emerald-soft: #e4f1ef;
+  --ivory: #faf7ef;
+  --ivory-2: #f4efe2;
+}
+
+:root,
+[data-theme="light"] {
+  --bg: #f6f2e8;
+  --bg-elevated: #fffdf6;
+  --surface: #fffdf7;
+  --surface-2: #faf6eb;
+  --surface-hover: #f1ebdb;
+  --sidebar-bg: #faf6eb;
+  --border: #e6ddc8;
+  --border-soft: #efe8d7;
+  --text-primary: #211d12;
+  --text-secondary: #6b6250;
+  --text-tertiary: #a2977d;
+
+  --primary: #0f766e;
+  --primary-600: #0b5d57;
+  --primary-soft: #e4f1ef;
+  --primary-grad-a: #0f766e;
+  --primary-grad-b: #d4af37;
+
+  --hero-grad: linear-gradient(130deg, #0b4a45 0%, #0f766e 48%, #1c8d82 100%);
+  --scrim: rgba(26, 22, 10, .44);
+}
+
+[data-theme="dark"] {
+  --bg: #0e100c;
+  --bg-elevated: #14170f;
+  --surface: #171a13;
+  --surface-2: #1c2018;
+  --surface-hover: #242a1e;
+  --sidebar-bg: #12150e;
+  --border: #2b3123;
+  --border-soft: #242a1c;
+  --text-primary: #f1eddd;
+  --text-secondary: #b5ad92;
+  --text-tertiary: #7d7860;
+
+  --primary: #4fc3b7;
+  --primary-600: #6ad1c6;
+  --primary-soft: rgba(79, 195, 183, .15);
+  --primary-grad-a: #4fc3b7;
+  --primary-grad-b: #d4af37;
+
+  --hero-grad: linear-gradient(130deg, #0a2e2a 0%, #0f4a44 50%, #14544d 100%);
+  --scrim: rgba(0, 0, 0, .62);
+}
+
+/* Category palette — keep readable, warm-toned */
+:root {
+  --cat-academic: #0f766e;
+  --cat-kp: #0e7490;
+  --cat-bootcamp: #d4af37;
+  --cat-worship: #15803d;
+  --cat-english: #0284c7;
+  --cat-dataanalyst: #7c3aed;
+  --cat-health: #dc2626;
+  --cat-personal: #8a7d5a;
+  --cat-rest: #0ea5a8;
+}
+
+/* ---------- Logo (crescent + star) ---------- */
+.logo {
+  background: linear-gradient(135deg, var(--gold-deep), var(--gold-light));
+  box-shadow: 0 8px 20px -8px rgba(184, 145, 42, .7);
+}
+.logo-icon { stroke: #fff; }
+
+/* ---------- Decorative twinkling stars + crescent (fixed layer) ---------- */
+.bg-decor {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.bg-crescent {
+  position: absolute;
+  top: -70px;
+  right: -60px;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 60% 40%, transparent 58%, color-mix(in srgb, var(--gold) 12%, transparent) 60%, transparent 68%);
+  filter: blur(1px);
+  animation: crescent-drift 26s ease-in-out infinite alternate;
+}
+
+.bg-decor .star {
+  position: absolute;
+  display: block;
+  width: 5px;
+  height: 5px;
+  background: var(--gold);
+  border-radius: 50%;
+  box-shadow: 0 0 8px 1px color-mix(in srgb, var(--gold) 70%, transparent);
+  opacity: 0;
+  animation: twinkle var(--dur, 4s) ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+.bg-decor .star::before,
+.bg-decor .star::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  background: inherit;
+  border-radius: inherit;
+  transform: translate(-50%, -50%);
+}
+.bg-decor .star::before { width: 11px; height: 1.5px; }
+.bg-decor .star::after { width: 1.5px; height: 11px; }
+
+/* star positions */
+.star.s1 { top: 12%; left: 8%; --dur: 3.6s; }
+.star.s2 { top: 22%; left: 82%; --dur: 4.4s; --delay: .6s; width: 4px; height: 4px; }
+.star.s3 { top: 58%; left: 94%; --dur: 5s; --delay: 1.2s; }
+.star.s4 { top: 84%; left: 12%; --dur: 3.2s; --delay: .3s; width: 4px; height: 4px; }
+.star.s5 { top: 34%; left: 48%; --dur: 4.8s; --delay: 1.8s; width: 4px; height: 4px; }
+.star.s6 { top: 6%; left: 55%; --dur: 4s; --delay: .9s; }
+.star.s7 { top: 70%; left: 60%; --dur: 3.8s; --delay: 2.2s; width: 3px; height: 3px; }
+.star.s8 { top: 46%; left: 20%; --dur: 5.4s; --delay: 1.5s; width: 3px; height: 3px; }
+.star.s9 { top: 90%; left: 78%; --dur: 4.2s; --delay: .4s; }
+.star.s10 { top: 14%; left: 34%; --dur: 3.4s; --delay: 2.6s; width: 3px; height: 3px; }
+.star.s11 { top: 64%; left: 40%; --dur: 4.6s; --delay: .2s; width: 4px; height: 4px; }
+.star.s12 { top: 30%; left: 68%; --dur: 3.9s; --delay: 3s; width: 3px; height: 3px; }
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0; transform: scale(.4) rotate(0deg); }
+  50% { opacity: .9; transform: scale(1) rotate(45deg); }
+}
+
+@keyframes crescent-drift {
+  from { transform: translateY(0) rotate(0deg); }
+  to { transform: translateY(14px) rotate(6deg); }
+}
+
+/* ---------- Hero crescent ---------- */
+.hero-crescent {
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  color: rgba(255, 255, 255, .18);
+  z-index: 0;
+  pointer-events: none;
+  animation: hero-crescent-float 7s ease-in-out infinite;
+}
+.hero-crescent .icon { width: 72px; height: 72px; }
+
+@keyframes hero-crescent-float {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-6px) rotate(4deg); }
+}
+
+/* gold accents on hero + primary */
+.hero-eyebrow { color: #e9c767; }
+.hero-meta div { border-color: rgba(233, 199, 103, .28); }
+.ring-pct { color: #fff; }
+.ring-label { color: #e8dcc0; }
+
+/* ---------- View transitions (fade + slide in/out) ---------- */
+.view { animation: view-in .32s cubic-bezier(.22, .8, .32, 1); }
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ---------- Nav active = gold underline glow ---------- */
+.nav.active {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--gold) 16%, transparent), transparent);
+  color: var(--gold-deep);
+  box-shadow: inset 2px 0 0 var(--gold);
+}
+[data-theme="dark"] .nav.active { color: var(--gold-light); }
+
+/* ---------- Primary button gold-emerald ---------- */
+.btn-primary {
+  background: linear-gradient(135deg, var(--emerald-deep), var(--gold-deep));
+  box-shadow: 0 8px 20px -8px rgba(15, 118, 110, .55);
+}
+.btn-primary:hover { box-shadow: 0 12px 28px -8px rgba(15, 118, 110, .65); }
+
+/* ---------- Habit streak fire → keep, but tint header ---------- */
+.card-head h3 { color: var(--text-primary); }
+
+/* ---------- Blue fire → gold "api" accent ---------- */
+.blue-fire-row { border-left-color: var(--gold); }
+.blue-fire-row.is-on { border-left-color: var(--gold); background: color-mix(in srgb, var(--gold) 10%, var(--surface-2)); }
+.blue-fire-icon { background: color-mix(in srgb, var(--gold) 18%, transparent); color: var(--gold-deep); }
+.blue-fire-on { background: color-mix(in srgb, var(--gold) 16%, transparent); color: var(--gold-deep); border-color: color-mix(in srgb, var(--gold) 40%, transparent); }
+
+/* Keep content above the decorative layer (aside is already fixed z-20) */
+main { position: relative; z-index: 1; }
